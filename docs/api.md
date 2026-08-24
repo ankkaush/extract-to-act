@@ -2,18 +2,20 @@
 
 This describes the eventual API surface, derived from the workflow (`docs/workflow.md`) and state machine (`docs/state-machine.md`). Nothing here is implemented yet — routes, request/response shapes, and error formats will be finalized as each owning phase is built, and this document should be kept in sync at that point rather than treated as frozen now.
 
-## Conventions (planned)
+## Conventions
 
 - JSON request/response bodies, standard HTTP status codes.
-- All mutating endpoints require authentication (see `docs/security.md`); the specific auth mechanism is a Phase 2 decision, not yet made.
-- Errors return a consistent shape: `{"error": "<code>", "message": "<human-readable>"}`.
+- All endpoints require an `Authorization: Bearer <API_KEY>` header — see `docs/adr/0008-api-authentication.md`. A missing or wrong token returns `401`.
+- Errors currently return FastAPI's default `{"detail": "<message>"}` shape. A consistent custom error envelope (`{"error": "<code>", "message": "..."}`) is deferred until more than one endpoint family exists to standardize across.
 
 ## Endpoints, by owning phase
 
-### Phase 4 — Ingestion
-- `POST /documents` — upload a file (multipart), returns the created `document` record (or the existing one, if the request's idempotency key matches a prior submission).
-- `GET /documents/{id}` — current state and metadata for a document.
-- `GET /documents` — list, filterable by state.
+### Phase 4 — Ingestion (implemented)
+- `POST /documents` — upload a file (`multipart/form-data`, field name `file`). Optional `Idempotency-Key` header; a repeated request with the same key returns the existing document (`201`, not an error) instead of creating a duplicate. Rejects unrecognized file content with `415` (content-sniffed — PDF/PNG/JPEG/TIFF only, see `docs/security.md`) and oversized files with `413`.
+- `GET /documents/{id}` — current state and metadata for a document. `404` if it doesn't exist.
+- `GET /documents` — list, optionally filtered with `?state=`.
+
+`DocumentOut` shape: `{id, state, original_filename, mime_type, content_hash, idempotency_key, created_at, updated_at}`.
 
 ### Phase 6 — Extraction
 - `GET /documents/{id}/extraction` — normalized extracted fields, confidence, and provenance for a document (read-only; extraction itself is triggered internally by the worker, not via API call).

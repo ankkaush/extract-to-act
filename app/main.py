@@ -1,15 +1,14 @@
-"""FastAPI application entrypoint.
-
-Phase 2 scope only: an empty, runnable application with configuration
-wired up. No business logic, no database access, no routes beyond a
-health check — those arrive in later phases per PLAN.md.
+"""FastAPI application entrypoint. See PLAN.md for what each router adds
+and which phase introduced it.
 """
 
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.routers import documents
 
 app = FastAPI(title="Extract to Act", version="0.1.0")
+app.include_router(documents.router)
 
 
 @app.get("/health")

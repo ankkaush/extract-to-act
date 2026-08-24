@@ -10,12 +10,12 @@ Phase-level roadmap. One phase = one coherent engineering/learning concept. Phas
 **Depends on:** the discovery/architecture/review work that preceded this repository.
 **Completion criteria:** every document below exists, is internally consistent, and is approved by the project owner. **Met — approved.**
 
-## Phase 2 — Project Foundation & Tooling 🔵
+## Phase 2 — Project Foundation & Tooling ✅
 
 Empty FastAPI app, Docker + Compose, config/secrets loading, CI with lint + unit tests, pre-commit secret scanning. No business logic.
 **Depends on:** Phase 1's ADRs for framework/DB/Docker.
-**Built so far:** `app/main.py` (health check only), `app/config.py` (env-based settings), `Dockerfile` + `docker-compose.yml` (app + Postgres, Postgres not yet used by the app), `pyproject.toml`, `.pre-commit-config.yaml` (ruff + gitleaks), `.github/workflows/ci.yml` (lint, Tier 1/2 tests, secret scan), `tests/test_health.py`.
-**Completion criteria:** `docker compose up` runs the app and a database locally; CI is green on a clean clone; no secret exists in git history.
+**Built:** `app/main.py` (health check only, at the time), `app/config.py` (env-based settings), `Dockerfile` + `docker-compose.yml`, `pyproject.toml`, `.pre-commit-config.yaml` (ruff + gitleaks), `.github/workflows/ci.yml` (lint, Tier 1/2 tests, secret scan), `tests/test_health.py`.
+**Completion criteria:** met.
 
 ## Phase 3 — Data Model & Persistence ✅
 
@@ -25,10 +25,13 @@ All core tables as SQLAlchemy models with Alembic migrations, full state-machine
 **Verified, not assumed:** migration applies cleanly (`alembic upgrade head` creates all 9 tables); a full downgrade→upgrade round-trip succeeds (this surfaced and fixed a real bug — Postgres ENUM types aren't dropped by `drop_table`, so downgrade now drops them explicitly); FK/uniqueness constraints tested against a live Postgres (idempotency key uniqueness, `state_history` rejecting an orphaned `document_id`); `docker compose up` → migrate → `/health` all pass end to end from a clean volume.
 **Completion criteria:** met.
 
-## Phase 4 — Document Ingestion & Storage ⚪
+## Phase 4 — Document Ingestion & Storage ✅
 
 Authenticated upload endpoint: file validation, storage, `RECEIVED` state, request-level idempotency. No extraction provider involved.
 **Depends on:** Phase 3's `documents` table.
+**Built:** `app/storage.py` (`StorageProvider` interface + `LocalStorageProvider`; `sign_url` stubbed until Phase 10 needs it), `app/ingestion.py` (content-sniffed file-type check, size limit, SHA-256 hashing — no filename/Content-Type trust), `app/auth.py` (shared bearer token, `docs/adr/0008-api-authentication.md`), `app/routers/documents.py` (`POST/GET /documents`, `GET /documents/{id}`), `app/schemas.py`.
+**Verified, not assumed:** 22 tests pass (unit: file-type sniffing rejects content that only *claims* to be a PDF by filename; integration: real Postgres + temp-dir storage via dependency overrides, with a SAVEPOINT-based test transaction so the router's own `session.commit()` never leaks into the database). Also verified against the real running container over plain HTTP: unauthenticated upload → `401`; valid upload → `201` with a `RECEIVED` row and a matching `state_history` entry; a second request with the same `Idempotency-Key` → same document `id`, not a duplicate; non-PDF content → `415`; the file actually lands in the container's local storage directory.
+**Completion criteria:** met.
 
 ## Phase 5 — Extraction Provider Evaluation (Spike) ⚪
 

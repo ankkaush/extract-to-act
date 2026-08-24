@@ -10,7 +10,7 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 3 of 19 — Data Model & Persistence — complete.** The full schema (9 tables) exists as SQLAlchemy models with an applied Alembic migration; no application code reads or writes them yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
+**Phase 4 of 19 — Document Ingestion & Storage — complete.** Documents can be uploaded, validated, stored, and retrieved via the API; nothing downstream (extraction, validation, review) exists yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
 
 ## How the system works, briefly
 
@@ -48,7 +48,15 @@ docker compose up --build -d
 docker compose run --rm app alembic upgrade head
 ```
 
-The app is then available at `http://localhost:8000/health`. The database schema now exists (9 tables — see `docs/data-model.md`), but no route reads or writes it yet — see `PLAN.md`.
+The app is then available at `http://localhost:8000`. Uploading a document (auth required — the unmodified `.env.example` uses the insecure dev-only default key, `dev-only-not-for-production`; see `docs/adr/0008-api-authentication.md`):
+
+```bash
+curl -X POST http://localhost:8000/documents \
+  -H "Authorization: Bearer dev-only-not-for-production" \
+  -F "file=@some-invoice.pdf"
+```
+
+Only PDF/PNG/JPEG/TIFF content is accepted (checked by file content, not extension), up to `MAX_UPLOAD_SIZE_BYTES`. Nothing downstream of ingestion exists yet — see `PLAN.md`.
 
 ### Running tests / lint without Docker
 

@@ -27,7 +27,15 @@ def db_engine():
 def db_session(db_engine):
     connection = db_engine.connect()
     transaction = connection.begin()
-    session_factory = sessionmaker(bind=connection, future=True)
+    # join_transaction_mode="create_savepoint" means application code that
+    # calls session.commit() (e.g. app/routers/documents.py) only releases
+    # a SAVEPOINT — the outer `transaction` above stays open and gets
+    # rolled back below, so nothing a test does ever reaches the real
+    # database. Without this, a route's own commit() would end the outer
+    # transaction early and leak test data.
+    session_factory = sessionmaker(
+        bind=connection, join_transaction_mode="create_savepoint", future=True
+    )
     session: Session = session_factory()
     try:
         yield session

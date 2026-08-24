@@ -10,6 +10,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "psycopg[binary]>=3.1",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008 flags `Depends(...)` in a default argument, which is FastAPI's own
+# idiomatic dependency-injection pattern, not a bug — it recurs in every
+# route, so it's disabled project-wide rather than per-line-ignored.
+ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 # Alembic autogenerates these — reformatting generated migrations to
