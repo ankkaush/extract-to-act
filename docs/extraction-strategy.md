@@ -19,11 +19,13 @@ Provider comparisons available in documentation and third-party benchmarks are m
 
 ## Status
 
-The evaluation harness is built — see [`spike/README.md`](../spike/README.md) for how to run it. It has not yet been run against real providers: this repository's environment has no Azure/Mistral/Anthropic credentials, and the sample-invoice sourcing decision below is still open. This section will be replaced with the actual results and recommendation once both are resolved and a real run completes.
+The evaluation harness and the 18-document synthetic dataset are both built and verified — see [`spike/README.md`](../spike/README.md). Ground truth is generated first and is authoritative by construction (documents are rendered from it, never transcribed from them). Evaluation deliberately reports business-critical fields (total, currency, invoice number, invoice date, due date, tax) separately from the aggregate score, with every miss individually itemized — not just a summary percentage.
+
+It has not yet been run against real providers: this environment has no Azure/Mistral/Anthropic credentials. This section will be replaced with the actual results and recommendation once credentials are available and a real run completes.
 
 ## What Phase 5 will actually test
 
-- **Sample:** ~15–20 representative invoices — clean digital PDF, scanned, multi-column, at least one non-USD currency. Sourcing (synthetic vs. anonymized real vs. public dataset) is an open decision — see PLAN.md Phase 1 completion note.
+- **Sample:** 18 synthetic invoices — approved and generated, see `spike/invoice_specs.py` and `spike/README.md`. Covers clean digital PDFs, two true image-only scans, multi-column and multi-page layouts, and 6 currencies with varied locale formats.
 - **Providers:** Azure Document Intelligence, Mistral OCR, and Claude vision — the three genuinely different approaches (purpose-built structured extraction, general-purpose structured extraction, flexible multimodal reasoning without native grounding).
 - **Measured per provider:** per-field accuracy against manually verified ground truth, whether confidence scores actually correlate with correctness, line-item extraction quality specifically, latency, and real cost per document.
 - **Cost:** run primarily through Azure's and Mistral's free tiers (both genuinely free, no card) — see `docs/cost-strategy.md` for the full budget.

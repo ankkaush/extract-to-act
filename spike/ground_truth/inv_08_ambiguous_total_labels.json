@@ -1,0 +1,20 @@
+{
+  "fields": {
+    "vendor_name": "Meridian Utilities Co.",
+    "invoice_number": "MU-778812",
+    "invoice_date": "2026-02-01",
+    "due_date": "2026-02-28",
+    "currency": "USD",
+    "subtotal": 340.0,
+    "tax": 0.0,
+    "total": 340.0
+  },
+  "line_items": [
+    {
+      "description": "Electricity usage - Feb 2026",
+      "quantity": 1,
+      "unit_price": 340.0,
+      "line_total": 340.0
+    }
+  ]
+}

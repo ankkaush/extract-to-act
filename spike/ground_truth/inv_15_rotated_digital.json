@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "vendor_name": "Ember & Oak Furniture Co.",
+    "invoice_number": "EO-7754",
+    "invoice_date": "2026-02-18",
+    "due_date": "2026-03-20",
+    "currency": "USD",
+    "subtotal": 1359.0,
+    "tax": 108.72,
+    "total": 1467.72
+  },
+  "line_items": [
+    {
+      "description": "Oak Dining Table",
+      "quantity": 1,
+      "unit_price": 899.0,
+      "line_total": 899.0
+    },
+    {
+      "description": "Dining Chair (set of 4)",
+      "quantity": 1,
+      "unit_price": 460.0,
+      "line_total": 460.0
+    }
+  ]
+}

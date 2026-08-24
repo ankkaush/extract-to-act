@@ -1,0 +1,32 @@
+{
+  "fields": {
+    "vendor_name": "Vestergaard Elektronik ApS",
+    "invoice_number": "VE-2231",
+    "invoice_date": "2026-01-30",
+    "due_date": "2026-03-01",
+    "currency": "EUR",
+    "subtotal": 525.0,
+    "tax": 99.75,
+    "total": 624.75
+  },
+  "line_items": [
+    {
+      "description": "Router Model R200",
+      "quantity": 4,
+      "unit_price": 65.0,
+      "line_total": 260.0
+    },
+    {
+      "description": "Network Switch 8-port",
+      "quantity": 2,
+      "unit_price": 110.0,
+      "line_total": 220.0
+    },
+    {
+      "description": "Cable Management Kit",
+      "quantity": 3,
+      "unit_price": 15.0,
+      "line_total": 45.0
+    }
+  ]
+}

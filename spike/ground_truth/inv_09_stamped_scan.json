@@ -1,0 +1,32 @@
+{
+  "fields": {
+    "vendor_name": "Coastal Freight Logistics",
+    "invoice_number": "CFL-40221",
+    "invoice_date": "2026-01-20",
+    "due_date": "2026-02-19",
+    "currency": "USD",
+    "subtotal": 2425.0,
+    "tax": 0.0,
+    "total": 2425.0
+  },
+  "line_items": [
+    {
+      "description": "Freight - Container 40ft",
+      "quantity": 1,
+      "unit_price": 2200.0,
+      "line_total": 2200.0
+    },
+    {
+      "description": "Fuel Surcharge",
+      "quantity": 1,
+      "unit_price": 150.0,
+      "line_total": 150.0
+    },
+    {
+      "description": "Handling Fee",
+      "quantity": 1,
+      "unit_price": 75.0,
+      "line_total": 75.0
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "fields": {
+    "vendor_name": "Harborline Industrial Supply",
+    "invoice_number": "HIS-55214",
+    "invoice_date": "2026-01-28",
+    "due_date": "2026-02-27",
+    "currency": "USD",
+    "subtotal": 565.93,
+    "tax": 45.27,
+    "total": 611.2
+  },
+  "line_items": [
+    {
+      "description": "Hex Bolt M6x40 (box)",
+      "quantity": 1,
+      "unit_price": 12.0,
+      "line_total": 12.0
+    },
+    {
+      "description": "Washer Set",
+      "quantity": 2,
+      "unit_price": 8.5,
+      "line_total": 17.0
+    },
+    {
+      "description": "Cable Tie (100ct)",
+      "quantity": 5,
+      "unit_price": 3.2,
+      "line_total": 16.0
+    },
+    {
+      "description": "Junction Box",
+      "quantity": 1,
+      "unit_price": 45.0,
+      "line_total": 45.0
+    },
+    {
+      "description": "Conduit Fitting",
+      "quantity": 3,
+      "unit_price": 22.75,
+      "line_total": 68.25
+    },
+    {
+      "description": "Wire Nut",
+      "quantity": 10,
+      "unit_price": 1.1,
+      "line_total": 11.0
+    },
+    {
+      "description": "Mounting Bracket",
+      "quantity": 4,
+      "unit_price": 6.6,
+      "line_total": 26.4
+    },
+    {
+      "description": "Safety Glasses",
+      "quantity": 2,
+      "unit_price": 19.99,
+      "line_total": 39.98
+    },
+    {
+      "description": "Power Drill",
+      "quantity": 1,
+      "unit_price": 150.0,
+      "line_total": 150.0
+    },
+    {
+      "description": "Drill Bit Set",
+      "quantity": 6,
+      "unit_price": 4.25,
+      "line_total": 25.5
+    },
+    {
+      "description": "Extension Cord",
+      "quantity": 2,
+      "unit_price": 33.0,
+      "line_total": 66.0
+    },
+    {
+      "description": "Tool Bag",
+      "quantity": 1,
+      "unit_price": 88.8,
+      "line_total": 88.8
+    }
+  ]
+}

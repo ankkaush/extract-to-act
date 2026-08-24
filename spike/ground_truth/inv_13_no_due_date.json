@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "vendor_name": "Fernwood Legal Associates",
+    "invoice_number": "FLA-1188",
+    "invoice_date": "2026-02-01",
+    "due_date": null,
+    "currency": "USD",
+    "subtotal": 1050.0,
+    "tax": 0.0,
+    "total": 1050.0
+  },
+  "line_items": [
+    {
+      "description": "Legal Consultation - 3hrs",
+      "quantity": 3,
+      "unit_price": 250.0,
+      "line_total": 750.0
+    },
+    {
+      "description": "Document Review",
+      "quantity": 1,
+      "unit_price": 300.0,
+      "line_total": 300.0
+    }
+  ]
+}

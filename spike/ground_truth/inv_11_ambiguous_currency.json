@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "vendor_name": "Northshore Print & Design (Toronto, ON)",
+    "invoice_number": "NPD-6620",
+    "invoice_date": "2026-02-05",
+    "due_date": "2026-03-07",
+    "currency": "CAD",
+    "subtotal": 625.0,
+    "tax": 81.25,
+    "total": 706.25
+  },
+  "line_items": [
+    {
+      "description": "Brochure Printing",
+      "quantity": 500,
+      "unit_price": 0.85,
+      "line_total": 425.0
+    },
+    {
+      "description": "Design Fee",
+      "quantity": 1,
+      "unit_price": 200.0,
+      "line_total": 200.0
+    }
+  ]
+}

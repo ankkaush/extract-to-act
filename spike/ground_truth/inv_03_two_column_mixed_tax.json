@@ -1,0 +1,38 @@
+{
+  "fields": {
+    "vendor_name": "Thistle & Co. Print Services Ltd",
+    "invoice_number": "TC-88231",
+    "invoice_date": "2026-03-01",
+    "due_date": "2026-03-31",
+    "currency": "GBP",
+    "subtotal": 360.0,
+    "tax": 48.0,
+    "total": 408.0
+  },
+  "line_items": [
+    {
+      "description": "Business Cards (500)",
+      "quantity": 1,
+      "unit_price": 45.0,
+      "line_total": 45.0
+    },
+    {
+      "description": "Books - Printed Catalogue",
+      "quantity": 1,
+      "unit_price": 120.0,
+      "line_total": 120.0
+    },
+    {
+      "description": "Banner Printing",
+      "quantity": 2,
+      "unit_price": 60.0,
+      "line_total": 120.0
+    },
+    {
+      "description": "Design Consultation",
+      "quantity": 1,
+      "unit_price": 75.0,
+      "line_total": 75.0
+    }
+  ]
+}

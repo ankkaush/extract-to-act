@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "vendor_name": "Sundara Textiles Pvt. Ltd.",
+    "invoice_number": "ST/2026/0341",
+    "invoice_date": "2026-02-08",
+    "due_date": "2026-03-10",
+    "currency": "INR",
+    "subtotal": 200000.0,
+    "tax": 36000.0,
+    "total": 236000.0
+  },
+  "line_items": [
+    {
+      "description": "Cotton Fabric (per meter)",
+      "quantity": 2000,
+      "unit_price": 45.0,
+      "line_total": 90000.0
+    },
+    {
+      "description": "Silk Fabric (per meter)",
+      "quantity": 500,
+      "unit_price": 220.0,
+      "line_total": 110000.0
+    }
+  ]
+}

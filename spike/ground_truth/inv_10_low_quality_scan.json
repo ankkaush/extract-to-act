@@ -1,0 +1,32 @@
+{
+  "fields": {
+    "vendor_name": "Ridgeview Landscaping",
+    "invoice_number": "RL-9081",
+    "invoice_date": "2026-02-15",
+    "due_date": "2026-03-17",
+    "currency": "USD",
+    "subtotal": 540.0,
+    "tax": 43.2,
+    "total": 583.2
+  },
+  "line_items": [
+    {
+      "description": "Lawn Care - Monthly",
+      "quantity": 1,
+      "unit_price": 150.0,
+      "line_total": 150.0
+    },
+    {
+      "description": "Mulch Installation",
+      "quantity": 2,
+      "unit_price": 85.0,
+      "line_total": 170.0
+    },
+    {
+      "description": "Tree Trimming",
+      "quantity": 1,
+      "unit_price": 220.0,
+      "line_total": 220.0
+    }
+  ]
+}

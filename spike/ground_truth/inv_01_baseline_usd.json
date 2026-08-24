@@ -1,0 +1,32 @@
+{
+  "fields": {
+    "vendor_name": "Bluepeak Office Supplies",
+    "invoice_number": "INV-10234",
+    "invoice_date": "2026-02-03",
+    "due_date": "2026-03-05",
+    "currency": "USD",
+    "subtotal": 777.5,
+    "tax": 62.2,
+    "total": 839.7
+  },
+  "line_items": [
+    {
+      "description": "Copy Paper (Case)",
+      "quantity": 10,
+      "unit_price": 34.5,
+      "line_total": 345.0
+    },
+    {
+      "description": "Toner Cartridge - Black",
+      "quantity": 4,
+      "unit_price": 89.0,
+      "line_total": 356.0
+    },
+    {
+      "description": "Desk Organizer",
+      "quantity": 6,
+      "unit_price": 12.75,
+      "line_total": 76.5
+    }
+  ]
+}

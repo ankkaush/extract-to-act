@@ -1,0 +1,32 @@
+{
+  "fields": {
+    "vendor_name": "Alpenweg Textilhandel AG",
+    "invoice_number": "AW-3390",
+    "invoice_date": "2026-02-10",
+    "due_date": "2026-03-10",
+    "currency": "EUR",
+    "subtotal": 2128.0,
+    "tax": 404.32,
+    "total": 2532.32
+  },
+  "line_items": [
+    {
+      "description": "T-Shirts (Bulk, 10% discount applied)",
+      "quantity": 100,
+      "unit_price": 8.0,
+      "line_total": 720.0
+    },
+    {
+      "description": "Hoodies (10% discount applied)",
+      "quantity": 50,
+      "unit_price": 22.0,
+      "line_total": 990.0
+    },
+    {
+      "description": "Caps (5% discount applied)",
+      "quantity": 80,
+      "unit_price": 5.5,
+      "line_total": 418.0
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "fields": {
+    "vendor_name": "Corner Cafe Supply Co.",
+    "invoice_number": "CCS-4471",
+    "invoice_date": "2026-02-22",
+    "due_date": "2026-03-01",
+    "currency": "USD",
+    "subtotal": 328.0,
+    "tax": 26.24,
+    "total": 354.24
+  },
+  "line_items": [
+    {
+      "description": "Coffee Beans (5lb bag)",
+      "quantity": 4,
+      "unit_price": 38.0,
+      "line_total": 152.0
+    },
+    {
+      "description": "Paper Cups (1000ct)",
+      "quantity": 2,
+      "unit_price": 45.0,
+      "line_total": 90.0
+    },
+    {
+      "description": "Napkins (case)",
+      "quantity": 3,
+      "unit_price": 18.0,
+      "line_total": 54.0
+    },
+    {
+      "description": "Cleaning Supplies Kit",
+      "quantity": 1,
+      "unit_price": 32.0,
+      "line_total": 32.0
+    }
+  ]
+}

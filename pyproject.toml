@@ -26,6 +26,10 @@ spike = [
     "azure-ai-documentintelligence>=1.0",
     "mistralai>=1.0",
     "anthropic>=0.40",
+    "reportlab>=4.2",
+    "pillow>=10.4",
+    "pymupdf>=1.24",
+    "pypdf>=4.3",
 ]
 
 [build-system]
@@ -56,3 +60,8 @@ ignore = ["B008"]
 # Alembic autogenerates these — reformatting generated migrations to
 # satisfy lint rules would fight the tool every time a new one is created.
 "alembic/versions/*" = ["E501", "UP"]
+# The `notes` field on each InvoiceSpec is long-form prose explaining what
+# that document tests (see spike/README.md) — wrapping it to 100 columns
+# repeatedly would hurt readability of the sentences themselves for no
+# real benefit, unlike E501 in actual code.
+"spike/invoice_specs.py" = ["E501"]

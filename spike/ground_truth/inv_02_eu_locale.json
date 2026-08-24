@@ -1,0 +1,26 @@
+{
+  "fields": {
+    "vendor_name": "Nordfeld Mobelwerk GmbH",
+    "invoice_number": "RE-2026-0042",
+    "invoice_date": "2026-01-15",
+    "due_date": "2026-02-14",
+    "currency": "EUR",
+    "subtotal": 514.5,
+    "tax": 97.76,
+    "total": 612.26
+  },
+  "line_items": [
+    {
+      "description": "Buerostuhl Modell X",
+      "quantity": 2,
+      "unit_price": 189.0,
+      "line_total": 378.0
+    },
+    {
+      "description": "Schreibtischlampe",
+      "quantity": 3,
+      "unit_price": 45.5,
+      "line_total": 136.5
+    }
+  ]
+}
