@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  # Brought up now for dev/prod parity per docs/adr/0004-containerization.md.
+  # Not yet used by the application — Phase 3 adds the actual connection,
+  # models, and migrations.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: extract_to_act
+      POSTGRES_PASSWORD: extract_to_act
+      POSTGRES_DB: extract_to_act
+    # Deliberately not published to the host: this machine tends to have
+    # other projects' Postgres containers already bound to 5432/5433, and
+    # the app container reaches this one over the internal Docker network
+    # (hostname `db`, port 5432) regardless. For local psql access, use
+    # `docker compose exec db psql -U extract_to_act`.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
