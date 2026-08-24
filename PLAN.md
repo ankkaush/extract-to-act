@@ -33,10 +33,14 @@ Authenticated upload endpoint: file validation, storage, `RECEIVED` state, reque
 **Verified, not assumed:** 22 tests pass (unit: file-type sniffing rejects content that only *claims* to be a PDF by filename; integration: real Postgres + temp-dir storage via dependency overrides, with a SAVEPOINT-based test transaction so the router's own `session.commit()` never leaks into the database). Also verified against the real running container over plain HTTP: unauthenticated upload → `401`; valid upload → `201` with a `RECEIVED` row and a matching `state_history` entry; a second request with the same `Idempotency-Key` → same document `id`, not a duplicate; non-PDF content → `415`; the file actually lands in the container's local storage directory.
 **Completion criteria:** met.
 
-## Phase 5 — Extraction Provider Evaluation (Spike) ⚪
+## Phase 5 — Extraction Provider Evaluation (Spike) 🔵
 
 Run ~15–20 representative invoices through Azure Document Intelligence, Mistral OCR, and Claude vision. Measure accuracy, confidence calibration, line-item quality, latency, and real cost. Produces a written, evidence-based provider recommendation.
 **Depends on:** nothing from Phases 2–4 — can run in parallel with them.
+**Built:** the full harness — `spike/schema.py` (normalized comparison shape), `spike/providers/{azure,mistral,claude}_provider.py`, `spike/pricing.py`, `spike/run_spike.py` (orchestrator, with a `--budget-cap` safety net), `spike/evaluate.py` (scoring + `spike/report.md` generation), `spike/README.md`.
+**Verified, not assumed:** the scoring logic (`evaluate_provider`, `render_report`) was run end-to-end against hand-built synthetic results and confirmed to compute correct per-field accuracy, confidence-calibration splits, and line-item match rates; both CLI entry points were run and confirmed to fail gracefully with a clear message when samples/ground-truth/credentials are missing, rather than crashing.
+**Blocked, not skipped:** the actual spike run against real providers needs (1) Azure Document Intelligence, Mistral, and Anthropic credentials — none exist in this environment — and (2) a resolved decision on sample-invoice sourcing (synthetic / anonymized real / public dataset), still open from the original discovery proposal. The provider wrapper code itself is written against each SDK's documented shape but is unverified against a live account — treat the first real run as also testing this code.
+**Completion criteria:** not met — pending credentials + sample sourcing, then a real run + `docs/extraction-strategy.md` update with results.
 
 ## Phase 6 — Extraction Integration & Normalization ⚪
 

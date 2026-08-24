@@ -17,6 +17,14 @@ venv/
 *.sqlite3
 pgdata/
 
+# Phase 5 spike — see spike/README.md. Raw invoice files and raw provider
+# responses are never committed; ground_truth/ and report.md are (once
+# real results exist).
+/spike/samples/*
+!/spike/samples/.gitkeep
+/spike/results/*
+!/spike/results/.gitkeep
+
 # Logs
 *.log
 logs/

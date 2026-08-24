@@ -20,6 +20,13 @@ dev = [
     "ruff>=0.6",
     "pre-commit>=3.8",
 ]
+# Phase 5 spike only — deliberately not a dependency of the application
+# itself. See spike/README.md, "Why not part of the application".
+spike = [
+    "azure-ai-documentintelligence>=1.0",
+    "mistralai>=1.0",
+    "anthropic>=0.40",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

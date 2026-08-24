@@ -17,6 +17,10 @@ Provider comparisons available in documentation and third-party benchmarks are m
 | Claude (vision) | None | Yes | ~$0.006–0.01/invoice | No native confidence/bbox; PDF citations don't ground scanned images | None — best general semantic reasoning |
 | Tesseract (local, open-source) | Free, unlimited | No | Free forever | No confidence, weak on tables | None — text only |
 
+## Status
+
+The evaluation harness is built — see [`spike/README.md`](../spike/README.md) for how to run it. It has not yet been run against real providers: this repository's environment has no Azure/Mistral/Anthropic credentials, and the sample-invoice sourcing decision below is still open. This section will be replaced with the actual results and recommendation once both are resolved and a real run completes.
+
 ## What Phase 5 will actually test
 
 - **Sample:** ~15–20 representative invoices — clean digital PDF, scanned, multi-column, at least one non-USD currency. Sourcing (synthetic vs. anonymized real vs. public dataset) is an open decision — see PLAN.md Phase 1 completion note.
