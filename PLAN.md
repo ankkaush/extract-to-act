@@ -17,10 +17,13 @@ Empty FastAPI app, Docker + Compose, config/secrets loading, CI with lint + unit
 **Built so far:** `app/main.py` (health check only), `app/config.py` (env-based settings), `Dockerfile` + `docker-compose.yml` (app + Postgres, Postgres not yet used by the app), `pyproject.toml`, `.pre-commit-config.yaml` (ruff + gitleaks), `.github/workflows/ci.yml` (lint, Tier 1/2 tests, secret scan), `tests/test_health.py`.
 **Completion criteria:** `docker compose up` runs the app and a database locally; CI is green on a clean clone; no secret exists in git history.
 
-## Phase 3 — Data Model & Persistence ⚪
+## Phase 3 — Data Model & Persistence ✅
 
 All core tables as SQLAlchemy models with Alembic migrations, full state-machine enum. No business logic reads/writes yet.
 **Depends on:** Phase 2's working Postgres connection.
+**Built:** `app/models.py` (9 tables, `DocumentState`/`ApprovalDecision`/`AccountingActionStatus` enums), `app/db.py` (engine/session, unused by any route yet), Alembic wired to `app.config`'s `DATABASE_URL` (no connection string in a committed file), initial migration `alembic/versions/e10b7a83d06f_initial_schema.py`, `docs/adr/0007-database-access.md` (sync SQLAlchemy decision), `tests/test_models.py` + `tests/conftest.py`.
+**Verified, not assumed:** migration applies cleanly (`alembic upgrade head` creates all 9 tables); a full downgrade→upgrade round-trip succeeds (this surfaced and fixed a real bug — Postgres ENUM types aren't dropped by `drop_table`, so downgrade now drops them explicitly); FK/uniqueness constraints tested against a live Postgres (idempotency key uniqueness, `state_history` rejecting an orphaned `document_id`); `docker compose up` → migrate → `/health` all pass end to end from a clean volume.
+**Completion criteria:** met.
 
 ## Phase 4 — Document Ingestion & Storage ⚪
 

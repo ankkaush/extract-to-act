@@ -7,6 +7,24 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      # Free and local, unlike the provider APIs docs/testing-strategy.md
+      # is frugal about — model/migration tests need a real Postgres.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: extract_to_act
+          POSTGRES_PASSWORD: extract_to_act
+          POSTGRES_DB: extract_to_act
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://extract_to_act:extract_to_act@localhost:5432/extract_to_act
     steps:
       - uses: actions/checkout@v4
 
@@ -19,6 +37,9 @@ jobs:
 
       - name: Lint
         run: ruff check .
+
+      - name: Apply migrations
+        run: alembic upgrade head
 
       - name: Test
         # Tier 1 + Tier 2 only (docs/testing-strategy.md) — real_api-marked

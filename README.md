@@ -10,7 +10,7 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 2 of 19 — Project Foundation & Tooling.** The application is an empty, runnable FastAPI skeleton — no business logic yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
+**Phase 3 of 19 — Data Model & Persistence — complete.** The full schema (9 tables) exists as SQLAlchemy models with an applied Alembic migration; no application code reads or writes them yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
 
 ## How the system works, briefly
 
@@ -44,10 +44,11 @@ Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a scheduled polling w
 
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up --build -d
+docker compose run --rm app alembic upgrade head
 ```
 
-The app is then available at `http://localhost:8000/health`. Nothing beyond a health check exists yet — see `PLAN.md`.
+The app is then available at `http://localhost:8000/health`. The database schema now exists (9 tables — see `docs/data-model.md`), but no route reads or writes it yet — see `PLAN.md`.
 
 ### Running tests / lint without Docker
 

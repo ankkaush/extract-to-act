@@ -18,6 +18,10 @@ class Settings(BaseSettings):
 
     app_env: str = Field(default="development", alias="APP_ENV")
     app_secret_key: str = Field(default="dev-only-not-for-production", alias="APP_SECRET_KEY")
+    database_url: str = Field(
+        default="postgresql+psycopg://extract_to_act:extract_to_act@db:5432/extract_to_act",
+        alias="DATABASE_URL",
+    )
 
 
 @lru_cache
