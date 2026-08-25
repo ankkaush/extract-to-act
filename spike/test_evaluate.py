@@ -124,7 +124,7 @@ def test_render_report_includes_named_critical_errors_not_just_a_percentage():
         "documents_evaluated": 2,
         "errors": 0,
         "overall_field_accuracy": 0.9,
-        "per_field_accuracy": {f: 0.9 for f in CRITICAL_FIELDS + ["vendor_name", "subtotal"]},
+        "per_field_accuracy": {f: 0.9 for f in [*CRITICAL_FIELDS, "vendor_name"]},
         "critical_field_accuracy": 0.83,
         "critical_errors": [
             {

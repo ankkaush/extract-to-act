@@ -84,7 +84,12 @@ def parse_response(response, doc_id: str, latency: float) -> NormalizedExtractio
 
 
 def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
-    from mistralai import Mistral
+    # Confirmed against the actually-installed mistralai==2.9.4: the
+    # public client class lives at mistralai.client.Mistral, not
+    # mistralai.Mistral (a bare `import mistralai` resolves to an empty
+    # namespace package in this version) — see PLAN.md Phase 5 for the
+    # real "cannot import name 'Mistral'" failure this fixes.
+    from mistralai.client import Mistral
 
     client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
 
@@ -100,7 +105,9 @@ def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
         document={"type": "document_url", "document_url": signed.url},
         document_annotation_format={
             "type": "json_schema",
-            "json_schema": {"name": "invoice_fields", "schema": _ANNOTATION_SCHEMA},
+            # Confirmed against JSONSchemaTypedDict on the installed SDK:
+            # the field is `schema_definition`, not `schema`.
+            "json_schema": {"name": "invoice_fields", "schema_definition": _ANNOTATION_SCHEMA},
         },
         include_image_base64=False,
     )

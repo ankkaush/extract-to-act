@@ -15,17 +15,42 @@ see "The dataset" below. The scoring logic (`spike/evaluate.py`) has been
 run against both synthetic fixtures and the real ground truth files and
 confirmed correct, including the critical-field-error reporting.
 
-**Not yet run against a real provider.** This environment has no
-Azure / Mistral / Anthropic credentials. Everything that can be done
-without one has been: each provider module is split into a real-I/O
-`extract()` and a pure `parse_result()`/`parse_response()` that maps an
-SDK-response-shaped object to the normalized schema — and that mapping
-logic is unit-tested in `spike/test_providers.py` against hand-built fake
-response objects, with no SDK package installed and no network call.
-That doesn't eliminate the risk of a real API returning a subtly
-different shape than documented, but it does mean the first real run is
-testing *provider behavior*, not also debugging basic field-mapping bugs
-at the same time.
+**The empirical comparison is scoped to Mistral OCR and Claude vision
+only.** Azure Document Intelligence is intentionally excluded — it's an
+optional candidate, not a requirement, and two sufficiently different
+providers are enough to reach a decision. See
+`docs/adr/0006-extraction-provider.md`. Azure's provider module and
+readiness test stay in the repo as a documented, ready option, but no
+Azure API call is planned as part of this comparison.
+
+**Not yet run for real, execution currently paused.** A first attempt
+surfaced and fixed two genuine SDK-shape bugs in the Mistral wrapper —
+found via static package introspection with no network call and no
+credentials touched:
+
+- `from mistralai import Mistral` is wrong on the installed SDK
+  (`mistralai==2.9.4`); the client class lives at
+  `mistralai.client.Mistral`. A bare `import mistralai` resolves to an
+  empty namespace package in this version.
+- The JSON-schema field is `schema_definition`, not `schema`, on
+  `JSONSchemaTypedDict`.
+
+Both are fixed in `spike/providers/mistral_provider.py` and now
+statically guarded by `spike/test_provider_readiness.py`, so the same
+regression can't silently reappear. Execution is paused for reasons
+unrelated to the providers themselves (credential-safety, not code) —
+see `PLAN.md` Phase 5 for the full account.
+
+Everything that can be done without a real provider call has been:
+each provider module is split into a real-I/O `extract()` and a pure
+`parse_result()`/`parse_response()` that maps an SDK-response-shaped
+object to the normalized schema, unit-tested against hand-built fake
+response objects with no SDK package installed and no network call. That
+doesn't eliminate the risk of a real API returning a subtly different
+shape than documented, but it does mean the first real run is testing
+*provider behavior*, not also debugging basic field-mapping bugs at the
+same time — which is exactly what happened with Mistral above, caught
+before spending anything.
 
 ## Tests
 
@@ -38,6 +63,12 @@ pytest spike/
   where a real rounding bug was caught — see git history).
 - `test_providers.py` — each provider's response-parsing logic against
   fake SDK objects, as above.
+- `test_provider_readiness.py` — imports and constructs each real SDK
+  client (Mistral, Claude, Azure) with an obviously-fake key — no
+  network call, since client construction is a local operation for all
+  three SDKs. Needs `.[spike]` installed (`pytest.importorskip`s
+  otherwise); this is what would have caught the Mistral import-path bug
+  without ever needing credentials.
 - `test_evaluate.py` — the scoring logic, including the critical-field
   accuracy split and itemized error list.
 - `test_dataset_integrity.py` — guards the committed dataset against
@@ -93,8 +124,8 @@ python -m spike.generate_samples
 
 1. **Credentials**, set as real environment variables (not committed —
    this reads from `os.environ` directly, not `.env`, to keep this spike
-   fully separate from the application's config):
-   - `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` / `AZURE_DOCUMENT_INTELLIGENCE_KEY` — [free tier](https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence), 500 pages/month ongoing, no card.
+   fully separate from the application's config). Only two are needed —
+   Azure is excluded from this comparison, see "Status" above:
    - `MISTRAL_API_KEY` — [free "Experiment" tier](https://mistral.ai/), no card, rate-limited (~2 RPM — this spike runs slowly on purpose).
    - `ANTHROPIC_API_KEY` — no free tier; this is the one provider in the spike that costs real money (small — see `docs/cost-strategy.md`).
 2. That's it — the dataset and ground truth already exist (see above).
@@ -108,17 +139,22 @@ own dependencies — see "Why not part of the app" below):
 pip install -e ".[spike]"
 ```
 
-Run every configured provider against every sample:
+Run against every sample, Mistral and Claude only:
 
 ```bash
-python -m spike.run_spike --budget-cap 2.00
+python -m spike.run_spike --providers mistral,claude --budget-cap 2.00
 ```
+
+`--providers` explicitly excludes `azure` — `azure_provider.py` is never
+imported and no Azure endpoint is ever contacted, not merely skipped for
+missing credentials.
 
 Providers without credentials set are skipped automatically, not treated
 as an error. `--budget-cap` (default $2.00) aborts the run the moment
 estimated real spend would exceed it — a safety net against a bug
-causing runaway spend, not the expected cost (Azure and Mistral should
-both run at $0 on their free tiers for a spike this size).
+causing runaway spend, not the expected cost (Mistral should run at $0
+on its free tier for a spike this size; Claude's expected total is
+~$0.10–0.20 for all 18 documents).
 
 Score the results against ground truth and generate the report:
 

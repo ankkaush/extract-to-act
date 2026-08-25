@@ -31,9 +31,18 @@ REPORT_PATH = SPIKE_DIR / "report.md"
 
 # The fields where an extraction error is a business-critical mistake,
 # not just noise — matches the project owner's explicit evaluation
-# requirement. Everything in EVALUATED_FIELDS but not here (currently:
-# vendor_name, subtotal) still gets scored, just not singled out.
-CRITICAL_FIELDS = ["total", "currency", "invoice_number", "invoice_date", "due_date", "tax"]
+# requirement (updated to include subtotal alongside the original set).
+# Everything in EVALUATED_FIELDS but not here (currently: vendor_name)
+# still gets scored, just not singled out.
+CRITICAL_FIELDS = [
+    "invoice_number",
+    "invoice_date",
+    "due_date",
+    "currency",
+    "subtotal",
+    "tax",
+    "total",
+]
 
 _DIFFICULTY_BY_DOC = {spec.doc_id: spec.difficulty for spec in INVOICE_SPECS}
 

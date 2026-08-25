@@ -24,6 +24,17 @@ Proportional to a single-tenant, portfolio-scale, publicly-visible-repository pr
 | External-provider data handling | Each extraction provider's API-data-training policy is documented once (Phase 5) and disclosed plainly in the README, since this is a public repo touching real (if synthetic) financial documents |
 | Bank/payment detail fraud | Bank/IBAN/payment-routing fields are never auto-populated into any downstream write path — captured for audit display only; a real bank-detail change is always a manual, out-of-band-verified event, never a workflow output |
 
+## Secret-safe debugging practice
+
+A real incident during Phase 5 makes this worth stating explicitly, not just implying: **diagnostic output must never include a raw exception message, traceback, HTTP request/header dump, or `env`-style variable listing when a credentialed client is anywhere in the call path.** During the first real extraction-provider run, an SDK-level connection error was diagnosed by printing the full exception chain — and the underlying `httpcore`/`httpx` error message embedded the literal `Authorization` header value (i.e., the API key) as part of its own text, because the key contained an invalid character the transport layer rejected and quoted back verbatim. A second, separate incident happened via `env | grep <provider-name>`, where the grep pattern matched the *variable name* and printed the whole matching line, value included. Both keys had to be rotated as a result.
+
+The practical rules this produces:
+
+- Check credential presence with a boolean (`bool(os.environ.get("X"))`) or length, never by printing the value or grepping unfiltered `env` output.
+- When a credentialed SDK call fails, catch the exception and print its **type and a fixed, reviewed message** — never `str(exc)`, `repr(exc)`, or `traceback.print_exc()` unprocessed, since a library's own error text can echo back request internals (headers, form data) that were never meant to be surfaced.
+- Diagnosing SDK/package-shape issues (import paths, method signatures, model field names) should be done via static introspection — `dir()`, `inspect.signature()`, reading installed source — which needs no credential and produces no exception text to accidentally leak.
+- If a real call must be tested, prefer the smallest possible request and inspect only structured, expected fields of a successful response (status code, response type) — not an error path's raw text.
+
 ## Deliberately not built
 
 SSO/OAuth, a formal RBAC framework beyond two roles (admin, reviewer/approver), rate limiting beyond a basic per-IP throttle, a compliance program (SOC2, formal DLP), or field-level encryption/HSM. Each solves a problem this single-tenant portfolio deployment doesn't have.

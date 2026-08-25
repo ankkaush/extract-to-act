@@ -19,16 +19,18 @@ Provider comparisons available in documentation and third-party benchmarks are m
 
 ## Status
 
-The evaluation harness and the 18-document synthetic dataset are both built and verified — see [`spike/README.md`](../spike/README.md). Ground truth is generated first and is authoritative by construction (documents are rendered from it, never transcribed from them). Evaluation deliberately reports business-critical fields (total, currency, invoice number, invoice date, due date, tax) separately from the aggregate score, with every miss individually itemized — not just a summary percentage.
+The evaluation harness and the 18-document synthetic dataset are both built and verified — see [`spike/README.md`](../spike/README.md). Ground truth is generated first and is authoritative by construction (documents are rendered from it, never transcribed from them). Evaluation deliberately reports business-critical fields (invoice number, invoice date, due date, currency, subtotal, tax, total) separately from the aggregate score, with every miss individually itemized — not just a summary percentage.
 
-It has not yet been run against real providers: this environment has no Azure/Mistral/Anthropic credentials. This section will be replaced with the actual results and recommendation once credentials are available and a real run completes.
+**The empirical comparison is scoped to Mistral OCR and Claude vision only.** Azure Document Intelligence is intentionally excluded from this experiment by explicit project owner decision — it's an optional candidate, not a requirement, and two sufficiently different providers are enough to reach a decision without the added cost and setup of a three-way comparison. See `docs/adr/0006-extraction-provider.md` for the full reasoning. Azure's code and readiness test remain in the repo as a documented, ready option if a future need reopens the question.
+
+A first attempt at the real run surfaced and fixed two genuine SDK-shape bugs in the Mistral wrapper (wrong import path, wrong JSON-schema field name — see `PLAN.md` Phase 5), found via static package introspection with no network call. Execution of the real comparison is currently paused for credential-safety reasons unrelated to the providers themselves. This section will be replaced with the actual results and recommendation once the real run completes.
 
 ## What Phase 5 will actually test
 
 - **Sample:** 18 synthetic invoices — approved and generated, see `spike/invoice_specs.py` and `spike/README.md`. Covers clean digital PDFs, two true image-only scans, multi-column and multi-page layouts, and 6 currencies with varied locale formats.
-- **Providers:** Azure Document Intelligence, Mistral OCR, and Claude vision — the three genuinely different approaches (purpose-built structured extraction, general-purpose structured extraction, flexible multimodal reasoning without native grounding).
-- **Measured per provider:** per-field accuracy against manually verified ground truth, whether confidence scores actually correlate with correctness, line-item extraction quality specifically, latency, and real cost per document.
-- **Cost:** run primarily through Azure's and Mistral's free tiers (both genuinely free, no card) — see `docs/cost-strategy.md` for the full budget.
+- **Providers:** Mistral OCR and Claude vision — two genuinely different approaches (general-purpose structured extraction with native confidence/provenance, vs. flexible multimodal reasoning without native grounding). Azure is excluded — see "Status" above.
+- **Measured per provider:** per-field accuracy against the authoritative ground truth, business-critical-field accuracy reported separately from the aggregate, whether confidence scores actually correlate with correctness, line-item extraction quality specifically, latency, and real cost per document.
+- **Cost:** run primarily through Mistral's free tier (genuinely free, no card); Claude has no free tier but the full 18-document run costs on the order of $0.10–0.20 — see `docs/cost-strategy.md` for the full budget.
 
 ## What this decides
 

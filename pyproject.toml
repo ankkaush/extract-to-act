@@ -24,8 +24,15 @@ dev = [
 # itself. See spike/README.md, "Why not part of the application".
 spike = [
     "azure-ai-documentintelligence>=1.0",
-    "mistralai>=1.0",
-    "anthropic>=0.40",
+    # Floor raised to the version spike/providers/mistral_provider.py was
+    # actually verified against (2.9.4) after `mistralai>=1.0` silently
+    # resolved to a version whose public API had moved — see
+    # docs/adr/0006-extraction-provider.md and spike/test_provider_readiness.py.
+    "mistralai>=2.9,<3.0",
+    # Floor raised to the version spike/providers/claude_provider.py was
+    # verified against (1.0.0) via static introspection of the response
+    # types and method signature — see spike/test_provider_readiness.py.
+    "anthropic>=1.0,<2.0",
     "reportlab>=4.2",
     "pillow>=10.4",
     "pymupdf>=1.24",
