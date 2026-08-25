@@ -10,15 +10,33 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 16 of 19 — Observability & Business Metrics — complete.** An uploaded document is extracted (Mistral OCR), then deterministically validated — required fields, arithmetic consistency, vendor matching, and duplicate detection — before landing in `VALIDATED`, `NEEDS_REVIEW`, or `DUPLICATE`, all in one synchronous request. A `NEEDS_REVIEW` document goes to a real queue (`GET /review`); a `VALIDATED` document at or above a configured dollar threshold needs a person's sign-off first (`GET /approvals`). Once eligible, `POST /documents/{id}/action` posts a real payable record to a mock AP ledger and moves the document to `COMPLETED`, with bounded retry-with-backoff and crash recovery behind every step (`app/retry.py`, `app/worker.py`), `docs/security.md`'s full control set implemented and verified (Phase 14), and the whole pipeline proven end to end against the live provider (Phase 15). `GET /dashboard` now shows what any of that actually accomplished: a straight-through rate, a review rate, a correction rate, and an average processing time, every one of them computed live from `state_history` timestamps, not sampled or estimated — plus exactly one number that *is* an estimate ("time saved"), always returned next to the assumption it's built from, never dressed up as measured. Nothing looks at AI confidence to decide any of this; see [`app/validation.py`](app/validation.py), [`app/vendor_matching.py`](app/vendor_matching.py), [`app/duplicate_detection.py`](app/duplicate_detection.py), [`app/review.py`](app/review.py), [`app/approval.py`](app/approval.py), [`app/accounting.py`](app/accounting.py), [`app/retry.py`](app/retry.py), [`app/worker.py`](app/worker.py), and [`app/metrics.py`](app/metrics.py). Nothing schedules the worker to run continuously yet — a deliberate, cost-conscious scope decision (see `PLAN.md` Phase 17), not an oversight.
+**Core system feature-complete — 16 of 19 phases built and verified, deployment prepared but deliberately not yet live.**
 
-**Deployment (Phase 17) is prepared; going live is deliberately deferred.** `render.yaml` and `docs/deployment.md` have everything needed to deploy to Render — a reviewed Blueprint, the exact secrets to set and why, automatic migration-on-deploy (verified locally against the real built image, including Render's dynamic port binding), and honest documentation of what doesn't carry over yet (no continuously-running worker, uploaded files don't persist across restarts without a paid disk). The actual deploy hasn't been triggered — a prior, separate project ran into a real Render issue, so this one is intentionally holding off on redeploying until that's understood, rather than burn through free-tier deploy attempts testing it. See `docs/deployment.md` for the walkthrough and the smoke test that will close out this phase whenever deployment actually happens.
+| | |
+|---|---|
+| Ingestion → extraction → validation | ✅ Content-sniffed upload, Mistral OCR, arithmetic + required-field checks, all synchronous in one request |
+| Vendor matching & duplicate detection | ✅ Deterministic fuzzy matching; exact-hash and content-level duplicate detection, before any wasted extraction spend |
+| Human review & approval | ✅ Review queue with per-rule failure reasons, correction audit trail, threshold-based approval routing |
+| Downstream action & idempotency | ✅ Mock AP ledger write, attempted-before-write idempotency, never double-posted |
+| Reliability | ✅ Bounded retry-with-backoff on every external call; a worker that resumes a document stuck mid-crash from exactly where it stopped |
+| Security | ✅ Every control in `docs/security.md` implemented and verified — see below |
+| Real-provider proof | ✅ Two opt-in tests against the live Mistral API, including a genuine authentication failure proving the dead-letter path holds for real |
+| Observability | ✅ `GET /dashboard` — every rate genuinely measured from timestamps, exactly one number labeled and computed as an estimate |
+| Deployment | ⏸️ Prepared (`render.yaml`, `docs/deployment.md`), intentionally not yet triggered — see below |
+
+Nothing here looks at AI confidence to make a financial decision — see [`app/validation.py`](app/validation.py), [`app/vendor_matching.py`](app/vendor_matching.py), [`app/duplicate_detection.py`](app/duplicate_detection.py), and the rest of `app/`. Full phase-by-phase build log, what was verified and how, and every real bug found along the way: [`PLAN.md`](PLAN.md).
+
+**On deployment:** `render.yaml` and `docs/deployment.md` have everything needed — a reviewed Blueprint, the exact secrets to set and why, migration-on-deploy verified locally against the real built image (including Render's dynamic port binding), and honest documentation of what doesn't carry over yet (no continuously-running worker, uploaded files don't persist across restarts without a paid disk). The actual deploy hasn't been triggered: a prior, separate project ran into a real Render issue, so this one is intentionally holding off on redeploying until that's understood, rather than burn through free-tier deploy attempts testing it.
+
+## Try it
+
+A ~10-minute walkthrough against the real system (local, real Mistral calls, no mocking): [`docs/demo-script.md`](docs/demo-script.md).
 
 ## How the system works, briefly
 
 An invoice arrives, gets read and structured, and is checked deterministically — does the math add up, have we seen this invoice before, do we recognize this vendor. If everything checks out with high confidence, it moves forward untouched. If anything is uncertain, it's queued for a person to review, side by side with the original document. Once validated and (if needed) approved, it becomes a real record in a downstream accounting system, with a full audit trail behind it.
 
-Full plain-English workflow: [`docs/workflow.md`](docs/workflow.md).
+Full plain-English workflow: [`docs/workflow.md`](docs/workflow.md). System diagram: [`docs/architecture.md`](docs/architecture.md).
 
 ## Documentation map
 
@@ -30,17 +48,18 @@ Full plain-English workflow: [`docs/workflow.md`](docs/workflow.md).
 | [`docs/adr/`](docs/adr/) | Why each consequential technology/architecture decision was made |
 | [`docs/data-model.md`](docs/data-model.md) | Entities, relationships, why each table exists |
 | [`docs/state-machine.md`](docs/state-machine.md) | Every document state, transition, and crash-recovery behavior |
-| [`docs/api.md`](docs/api.md) | The eventual API surface |
-| [`docs/extraction-strategy.md`](docs/extraction-strategy.md) | How the extraction-provider decision will be made and validated |
+| [`docs/api.md`](docs/api.md) | The full API surface, by owning phase |
+| [`docs/extraction-strategy.md`](docs/extraction-strategy.md) | How the extraction-provider decision was made and validated |
 | [`docs/security.md`](docs/security.md) | Threats considered and the control for each |
 | [`docs/reliability.md`](docs/reliability.md) | Failure modes and how each is handled |
 | [`docs/testing-strategy.md`](docs/testing-strategy.md) | The four test tiers, and when a real paid API call is ever allowed |
 | [`docs/cost-strategy.md`](docs/cost-strategy.md) | Where money can be spent and how it's kept near zero |
-| [`docs/deployment.md`](docs/deployment.md) | How and where this runs |
+| [`docs/deployment.md`](docs/deployment.md) | How and where this runs, and its current (deferred) deployment status |
+| [`docs/demo-script.md`](docs/demo-script.md) | A guided walkthrough of the running system |
 
-## Tech stack (planned)
+## Tech stack
 
-Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a scheduled polling worker (no message queue), deployed on Render. Reasoning for each in [`docs/adr/`](docs/adr/). Extraction provider: Mistral OCR — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md).
+Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a polling worker (no message queue), Render as the deployment target (Blueprint prepared, not yet live). Reasoning for each in [`docs/adr/`](docs/adr/). Extraction provider: Mistral OCR — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md).
 
 ## Local setup
 
