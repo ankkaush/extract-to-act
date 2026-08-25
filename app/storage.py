@@ -36,6 +36,17 @@ class StorageProvider(Protocol):
         """Return a short-lived, signed URL for the given storage_path."""
         ...
 
+    def verify_signed_url(self, *, storage_path: str, expires: int, signature: str) -> bool:
+        """Verify a URL this same provider signed. Deliberately a method,
+        not a standalone function taking a secret_key parameter — the
+        caller (app/routers/files.py) must verify against *this*
+        provider's own key, not a separately-fetched settings value that
+        could silently diverge from what actually signed the URL (e.g.
+        under a test override). See verify_signed_url() below for the
+        pure primitive this delegates to.
+        """
+        ...
+
 
 def _signature(storage_path: str, expires: int, secret_key: str) -> str:
     message = f"{storage_path}:{expires}".encode()
@@ -43,11 +54,19 @@ def _signature(storage_path: str, expires: int, secret_key: str) -> str:
 
 
 def verify_signed_url(*, storage_path: str, expires: int, signature: str, secret_key: str) -> bool:
-    """Recomputes the HMAC and checks it hasn't expired. Used by the
-    unauthenticated GET /files/{storage_path} route (app/routers/files.py)
-    — the signature itself is the authorization there, not the bearer
-    token every other route requires, so a signed URL works dropped
-    straight into a reviewer's browser or an <img>/<iframe> src.
+    """Recomputes the HMAC and checks it hasn't expired. The pure
+    primitive `LocalStorageProvider.verify_signed_url` delegates to —
+    call that method (via the injected StorageProvider dependency) in
+    application code, not this function directly with a
+    separately-fetched secret_key. A real bug shipped exactly that way
+    once: app/routers/files.py used to call this with
+    `get_settings().app_secret_key` instead of the actual provider
+    instance's own key, which happened to match in production (both
+    ultimately read the same setting) but silently diverged under a
+    test override, passing locally and failing in CI where
+    APP_SECRET_KEY isn't set at all. Kept as a standalone function
+    for direct Tier 1 testing (tests/test_storage_signing.py) — see
+    docs/security.md.
     """
     if expires < int(time.time()):
         return False
@@ -79,3 +98,11 @@ class LocalStorageProvider:
         expires = int(time.time()) + expires_in
         signature = _signature(storage_path, expires, self._secret_key)
         return f"/files/{storage_path}?expires={expires}&signature={signature}"
+
+    def verify_signed_url(self, *, storage_path: str, expires: int, signature: str) -> bool:
+        return verify_signed_url(
+            storage_path=storage_path,
+            expires=expires,
+            signature=signature,
+            secret_key=self._secret_key,
+        )

@@ -11,11 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.db import get_session
 from app.models import Document
 from app.routers.documents import get_storage_provider
-from app.storage import StorageProvider, verify_signed_url
+from app.storage import StorageProvider
 
 router = APIRouter(prefix="/files", tags=["files"])
 
@@ -28,11 +27,11 @@ def get_file(
     session: Session = Depends(get_session),
     storage: StorageProvider = Depends(get_storage_provider),
 ):
-    if not verify_signed_url(
-        storage_path=storage_path,
-        expires=expires,
-        signature=signature,
-        secret_key=get_settings().app_secret_key,
+    # Verify against the injected provider's own key, never a
+    # separately-fetched settings value — see app/storage.py's
+    # verify_signed_url() docstring for the real bug this avoids.
+    if not storage.verify_signed_url(
+        storage_path=storage_path, expires=expires, signature=signature
     ):
         raise HTTPException(status_code=403, detail="Invalid or expired signature")
 

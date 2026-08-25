@@ -10,23 +10,27 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Core system feature-complete — 16 of 19 phases built and verified, deployment prepared but deliberately not yet live.**
+**Project complete.** The core system is fully implemented, tested, documented, and deployment-ready. Production deployment is deliberately deferred (see below) — the application has not been deployed to Render, and this README makes no claim that it has.
 
 | | |
 |---|---|
-| Ingestion → extraction → validation | ✅ Content-sniffed upload, Mistral OCR, arithmetic + required-field checks, all synchronous in one request |
-| Vendor matching & duplicate detection | ✅ Deterministic fuzzy matching; exact-hash and content-level duplicate detection, before any wasted extraction spend |
-| Human review & approval | ✅ Review queue with per-rule failure reasons, correction audit trail, threshold-based approval routing |
-| Downstream action & idempotency | ✅ Mock AP ledger write, attempted-before-write idempotency, never double-posted |
-| Reliability | ✅ Bounded retry-with-backoff on every external call; a worker that resumes a document stuck mid-crash from exactly where it stopped |
-| Security | ✅ Every control in `docs/security.md` implemented and verified — see below |
-| Real-provider proof | ✅ Two opt-in tests against the live Mistral API, including a genuine authentication failure proving the dead-letter path holds for real |
-| Observability | ✅ `GET /dashboard` — every rate genuinely measured from timestamps, exactly one number labeled and computed as an estimate |
-| Deployment | ⏸️ Prepared (`render.yaml`, `docs/deployment.md`), intentionally not yet triggered — see below |
+| Ingestion → extraction → validation | ✅ Complete — content-sniffed upload, Mistral OCR, arithmetic + required-field checks, all synchronous in one request |
+| Vendor matching & duplicate detection | ✅ Complete — deterministic fuzzy matching; exact-hash and content-level duplicate detection, before any wasted extraction spend |
+| Human review & approval | ✅ Complete — review queue with per-rule failure reasons, correction audit trail, threshold-based approval routing |
+| Downstream action & idempotency | ✅ Complete — mock AP ledger write, attempted-before-write idempotency, never double-posted |
+| Reliability | ✅ Complete — bounded retry-with-backoff on every external call; a worker that resumes a document stuck mid-crash from exactly where it stopped |
+| Security | ✅ Complete — every control in `docs/security.md` implemented and verified — see below |
+| Real-provider proof | ✅ Complete — two opt-in tests against the live Mistral API, including a genuine authentication failure proving the dead-letter path holds for real |
+| Observability | ✅ Complete — `GET /dashboard`, every rate genuinely measured from timestamps, exactly one number labeled and computed as an estimate |
+| Documentation & demo prep | ✅ Complete — portfolio-oriented README, GitHub-renderable architecture diagram, guided demo script |
+| Deployment infrastructure & docs | ✅ Complete — Render Blueprint and full deployment walkthrough, verified locally |
+| Live production deployment | ⏸️ Deliberately deferred, not part of this completed scope — see below |
 
 Nothing here looks at AI confidence to make a financial decision — see [`app/validation.py`](app/validation.py), [`app/vendor_matching.py`](app/vendor_matching.py), [`app/duplicate_detection.py`](app/duplicate_detection.py), and the rest of `app/`. Full phase-by-phase build log, what was verified and how, and every real bug found along the way: [`PLAN.md`](PLAN.md).
 
-**On deployment:** `render.yaml` and `docs/deployment.md` have everything needed — a reviewed Blueprint, the exact secrets to set and why, migration-on-deploy verified locally against the real built image (including Render's dynamic port binding), and honest documentation of what doesn't carry over yet (no continuously-running worker, uploaded files don't persist across restarts without a paid disk). The actual deploy hasn't been triggered: a prior, separate project ran into a real Render issue, so this one is intentionally holding off on redeploying until that's understood, rather than burn through free-tier deploy attempts testing it.
+**On deployment:** deployment *infrastructure* is complete, not merely started — `render.yaml` and `docs/deployment.md` have everything needed to deploy: a reviewed Blueprint, the exact secrets to set and why, migration-on-deploy verified locally against the real built image (including Render's dynamic port binding), and honest documentation of what doesn't carry over yet (no continuously-running worker, uploaded files don't persist across restarts without a paid disk). What's deferred is only the act of actually deploying it: a prior, separate project ran into a real Render issue, so this one is intentionally holding off on redeploying until that's understood, rather than burn through free-tier deploy attempts testing it. **The application has not been deployed anywhere** — there is no live URL yet, and none is implied.
+
+**Out of scope for this completed project:** Phase 19 is a stretch-extension backlog (a real Xero/QuickBooks sandbox adapter, email ingestion, hybrid multi-provider extraction) — optional future work, not unfinished core functionality. See `PLAN.md`'s Phase 19 entry.
 
 ## Try it
 

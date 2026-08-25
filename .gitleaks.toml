@@ -1,0 +1,22 @@
+title = "gitleaks config for extract-to-act"
+
+# Extends (not replaces) gitleaks' default rule set — this file exists
+# only to allowlist one specific, verified-safe string, not to redefine
+# detection rules. See docs/security.md.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented non-secret placeholders, verified safe — never a real credential"
+regexes = [
+  # app/config.py's own insecure dev-only fallback value (see
+  # docs/adr/0008-api-authentication.md) — appears verbatim in curl
+  # examples across README.md/docs/demo-script.md. A fingerprint-based
+  # .gitleaksignore entry doesn't scale here: it's pinned to one exact
+  # commit+line and breaks the moment the same known-safe string
+  # appears in a new file or a new commit (as happened in Phase 18,
+  # docs/demo-script.md) — this regex allowlists the string itself,
+  # wherever it legitimately appears, without weakening detection of
+  # any real secret.
+  '''dev-only-not-for-production''',
+]
