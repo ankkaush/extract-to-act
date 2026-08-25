@@ -1,8 +1,8 @@
 """Tier 2-ish integration tests: real Postgres (via db_session, see
 conftest.py), local disk storage in a temp dir, no external provider.
-Covers docs/workflow.md steps 1-2 (ingestion + extraction) and the
-idempotency/validation behavior documented in docs/reliability.md and
-docs/security.md.
+Covers docs/workflow.md steps 1-3 (ingestion + extraction + validation)
+and the idempotency/validation behavior documented in
+docs/reliability.md and docs/security.md.
 
 Extraction is always faked here — see FakeExtractionProvider — so no
 test in this file ever makes a real network call. See
@@ -17,20 +17,34 @@ from sqlalchemy import select
 
 from app.config import get_settings
 from app.db import get_session
-from app.extraction import EXTRACTED_FIELDS, ExtractedField, ExtractionOutput
+from app.extraction import ExtractedField, ExtractionOutput
 from app.main import app
-from app.models import DocumentState, StateHistory
+from app.models import DocumentState, StateHistory, ValidationResult
 from app.routers import documents as documents_router
 from app.storage import LocalStorageProvider
 
 PDF_BYTES = b"%PDF-1.4\n%fake but valid-looking pdf content"
 AUTH_HEADER = {"Authorization": f"Bearer {get_settings().api_key}"}
 
+# A complete, arithmetic-consistent extraction — the "everything went
+# right" case, which should sail through Phase 7's validation to
+# VALIDATED without a human touching it.
+VALID_FIELDS = {
+    "vendor_name": ExtractedField(value="Acme Corp"),
+    "invoice_number": ExtractedField(value="INV-1042"),
+    "invoice_date": ExtractedField(value="2026-03-01"),
+    "due_date": ExtractedField(value="2026-03-31"),
+    "currency": ExtractedField(value="USD"),
+    "subtotal": ExtractedField(value=1000.0),
+    "tax": ExtractedField(value=80.0),
+    "total": ExtractedField(value=1080.0),
+}
+
 
 class FakeExtractionProvider:
-    """Test double — never calls a real provider. Defaults to a
-    successful, minimal (all-null-field) extraction; pass `output` or
-    `error` to exercise a specific case.
+    """Test double — never calls a real provider. Defaults to a complete,
+    valid extraction (see VALID_FIELDS); pass `output` or `error` to
+    exercise a specific case.
     """
 
     def __init__(self, *, output: ExtractionOutput | None = None, error: Exception | None = None):
@@ -41,9 +55,7 @@ class FakeExtractionProvider:
         if self._error is not None:
             raise self._error
         return self._output or ExtractionOutput(
-            provider_name="fake",
-            model_version="fake-1",
-            fields={name: ExtractedField(value=None) for name in EXTRACTED_FIELDS},
+            provider_name="fake", model_version="fake-1", fields=dict(VALID_FIELDS)
         )
 
 
@@ -66,6 +78,13 @@ def _override_extraction(*, output=None, error=None):
     app.dependency_overrides[documents_router.get_extraction_provider] = factory
 
 
+def _fields_with(**overrides) -> dict:
+    fields = dict(VALID_FIELDS)
+    for name, value in overrides.items():
+        fields[name] = ExtractedField(value=value)
+    return fields
+
+
 def _upload(client, *, content=PDF_BYTES, filename="invoice.pdf", headers=None):
     merged_headers = {**AUTH_HEADER, **(headers or {})}
     return client.post(
@@ -75,6 +94,15 @@ def _upload(client, *, content=PDF_BYTES, filename="invoice.pdf", headers=None):
     )
 
 
+def _state_sequence(db_session, document_id) -> list[DocumentState]:
+    history = db_session.scalars(
+        select(StateHistory)
+        .where(StateHistory.document_id == document_id)
+        .order_by(StateHistory.created_at)
+    ).all()
+    return [h.to_state for h in history]
+
+
 def test_upload_requires_authentication(client):
     response = client.post(
         "/documents", files={"file": ("invoice.pdf", io.BytesIO(PDF_BYTES), "application/pdf")}
@@ -82,23 +110,20 @@ def test_upload_requires_authentication(client):
     assert response.status_code == 401
 
 
-def test_upload_runs_extraction_and_reaches_extracted_state(client, db_session):
+def test_upload_with_valid_data_reaches_validated_state(client, db_session):
     response = _upload(client)
     assert response.status_code == 201
     body = response.json()
-    assert body["state"] == DocumentState.EXTRACTED.value
+    assert body["state"] == DocumentState.VALIDATED.value
     assert body["mime_type"] == "application/pdf"
     assert body["original_filename"] == "invoice.pdf"
 
-    history = db_session.scalars(
-        select(StateHistory)
-        .where(StateHistory.document_id == body["id"])
-        .order_by(StateHistory.created_at)
-    ).all()
-    assert [h.to_state for h in history] == [
+    assert _state_sequence(db_session, body["id"]) == [
         DocumentState.RECEIVED,
         DocumentState.EXTRACTING,
         DocumentState.EXTRACTED,
+        DocumentState.VALIDATING,
+        DocumentState.VALIDATED,
     ]
 
 
@@ -109,6 +134,63 @@ def test_upload_with_failing_extraction_reaches_failed_state(client):
 
     assert response.status_code == 201  # the upload itself succeeded
     assert response.json()["state"] == DocumentState.FAILED.value
+
+
+def test_upload_with_missing_required_field_reaches_needs_review(client, db_session):
+    output = ExtractionOutput(
+        provider_name="fake", model_version="fake-1", fields=_fields_with(invoice_number=None)
+    )
+    _override_extraction(output=output)
+
+    response = _upload(client)
+
+    assert response.json()["state"] == DocumentState.NEEDS_REVIEW.value
+    assert DocumentState.NEEDS_REVIEW in _state_sequence(db_session, response.json()["id"])
+
+    results = db_session.scalars(
+        select(ValidationResult).where(
+            ValidationResult.document_id == response.json()["id"],
+            ValidationResult.rule_name == "required:invoice_number",
+        )
+    ).all()
+    assert len(results) == 1
+    assert results[0].passed is False
+    assert "invoice_number" in results[0].reason
+
+
+def test_upload_with_arithmetic_mismatch_reaches_needs_review(client, db_session):
+    # Total is a cent off from subtotal + tax — a deliberately adversarial
+    # case, not a rounding artifact (tolerance is 0.02).
+    output = ExtractionOutput(
+        provider_name="fake", model_version="fake-1", fields=_fields_with(total=1080.05)
+    )
+    _override_extraction(output=output)
+
+    response = _upload(client)
+
+    assert response.json()["state"] == DocumentState.NEEDS_REVIEW.value
+    results = db_session.scalars(
+        select(ValidationResult).where(
+            ValidationResult.document_id == response.json()["id"],
+            ValidationResult.rule_name == "arithmetic:subtotal_plus_tax_equals_total",
+        )
+    ).all()
+    assert len(results) == 1
+    assert results[0].passed is False
+
+
+def test_upload_missing_due_date_alone_still_reaches_validated(client):
+    # due_date is deliberately not a required field — see
+    # docs/extraction-strategy.md's real-run finding. A missing due date
+    # on its own must not send a document to review.
+    output = ExtractionOutput(
+        provider_name="fake", model_version="fake-1", fields=_fields_with(due_date=None)
+    )
+    _override_extraction(output=output)
+
+    response = _upload(client)
+
+    assert response.json()["state"] == DocumentState.VALIDATED.value
 
 
 def test_repeated_request_with_same_idempotency_key_returns_existing_document(client):
@@ -158,37 +240,23 @@ def test_get_document_not_found(client):
 
 def test_list_documents_filters_by_state(client):
     _upload(client)
-    response = client.get("/documents", params={"state": "EXTRACTED"}, headers=AUTH_HEADER)
+    response = client.get("/documents", params={"state": "VALIDATED"}, headers=AUTH_HEADER)
     assert response.status_code == 200
     assert len(response.json()) >= 1
-    assert all(doc["state"] == "EXTRACTED" for doc in response.json())
+    assert all(doc["state"] == "VALIDATED" for doc in response.json())
 
 
 def test_get_extraction_returns_normalized_fields(client):
-    output = ExtractionOutput(
-        provider_name="fake",
-        model_version="fake-1",
-        fields={
-            "vendor_name": ExtractedField(value="Acme Corp", confidence=0.95),
-            "invoice_number": ExtractedField(value="INV-1"),
-            "invoice_date": ExtractedField(value="2026-03-01"),
-            "due_date": ExtractedField(value=None),
-            "currency": ExtractedField(value="USD"),
-            "subtotal": ExtractedField(value=100.0),
-            "tax": ExtractedField(value=8.0),
-            "total": ExtractedField(value=108.0),
-        },
-    )
-    _override_extraction(output=output)
-
+    # Default fixture output (VALID_FIELDS) — no override needed.
     document_id = _upload(client).json()["id"]
     response = client.get(f"/documents/{document_id}/extraction", headers=AUTH_HEADER)
 
     assert response.status_code == 200
     body = response.json()
     assert body["vendor_name"] == "Acme Corp"
-    assert body["total"] == 108.0
-    assert body["fields"]["vendor_name"]["confidence"] == 0.95
+    assert body["invoice_number"] == "INV-1042"
+    assert body["total"] == 1080.0
+    assert body["fields"]["vendor_name"]["value"] == "Acme Corp"
 
 
 def test_get_extraction_not_found_when_extraction_failed(client):

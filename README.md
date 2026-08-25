@@ -10,7 +10,7 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 6 of 19 — Extraction Integration & Normalization — complete.** An uploaded document is now actually sent to Mistral OCR and lands in the database as normalized, provenance-tagged fields (`GET /documents/{id}/extraction`) — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md) for the provider decision. Deterministic validation, duplicate/vendor matching, and human review don't exist yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
+**Phase 7 of 19 — Deterministic Validation — complete.** An uploaded document is extracted (Mistral OCR) and then deterministically validated — required fields, arithmetic consistency — before landing in `VALIDATED` or `NEEDS_REVIEW`, all in one synchronous request. Nothing looks at AI confidence to decide this; see [`app/validation.py`](app/validation.py). Vendor/duplicate matching and the actual human-review UI don't exist yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
 
 ## How the system works, briefly
 
@@ -56,7 +56,7 @@ curl -X POST http://localhost:8000/documents \
   -F "file=@some-invoice.pdf"
 ```
 
-Only PDF/PNG/JPEG/TIFF content is accepted (checked by file content, not extension), up to `MAX_UPLOAD_SIZE_BYTES`. **This call hits the real Mistral API** if `MISTRAL_API_KEY` is set in `.env` — extraction runs synchronously as part of the upload (see `docs/api.md`), so the response only comes back once it's done. Nothing downstream of extraction (validation, review, approval) exists yet — see `PLAN.md`.
+Only PDF/PNG/JPEG/TIFF content is accepted (checked by file content, not extension), up to `MAX_UPLOAD_SIZE_BYTES`. **This call hits the real Mistral API** if `MISTRAL_API_KEY` is set in `.env` — extraction and deterministic validation both run synchronously as part of the upload (see `docs/api.md`), so the response only comes back once the document is fully `VALIDATED` or `NEEDS_REVIEW` (or `FAILED`, if extraction itself failed). Human review, vendor/duplicate matching, and approval don't exist yet — see `PLAN.md`.
 
 ### Running tests / lint without Docker
 

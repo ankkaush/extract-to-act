@@ -19,9 +19,14 @@ This describes the eventual API surface, derived from the workflow (`docs/workfl
 
 ### Phase 6 — Extraction (implemented)
 - `GET /documents/{id}/extraction` — normalized extracted fields (with per-field confidence/page/bbox/source_text where the provider supplies them), line items, and the promoted header columns. `404` if the document doesn't exist, or if extraction hasn't produced a result (e.g. it failed — check `GET /documents/{id}`'s `state`).
-- Extraction is **not** a separate call — `POST /documents` runs it synchronously as part of the upload request (`RECEIVED` → `EXTRACTING` → `EXTRACTED`/`FAILED`) and only returns once it's done. There's no background worker yet (that's Phase 13); this is a deliberate, documented simplification, not an oversight — see `app/routers/documents.py`.
+- Extraction is **not** a separate call — `POST /documents` runs it synchronously as part of the upload request and only returns once it's done. There's no background worker yet (that's Phase 13); this is a deliberate, documented simplification, not an oversight — see `app/routers/documents.py`.
 
 `ExtractionResultOut` shape: `{id, document_id, provider_name, provider_model_version, vendor_name, invoice_number, invoice_date, due_date, currency, subtotal, tax, total, fields, line_items, created_at}`.
+
+### Phase 7 — Deterministic Validation (implemented)
+No new endpoint — validation runs synchronously immediately after extraction succeeds, as part of the same `POST /documents` call: `EXTRACTED` → `VALIDATING` → `VALIDATED` (every rule passed) or `NEEDS_REVIEW` (at least one failed). A document's final `state` in the upload response already reflects the validation outcome, not just extraction. Every rule's individual pass/fail and reason is persisted (`validation_results`, not yet exposed via its own endpoint — that's part of Phase 10's review UI, which needs to show a reviewer exactly why a document landed in the queue).
+
+**Full synchronous chain as of Phase 7:** a successful `POST /documents` response never actually shows `state: "EXTRACTED"` — extraction success always continues straight into validation within the same request. The only end states an upload response can show are `VALIDATED`, `NEEDS_REVIEW`, or `FAILED` (extraction itself failed, before validation ever ran).
 
 ### Phase 10 — Human review
 - `GET /review` — the review queue: documents in `NEEDS_REVIEW`, with reason codes.
