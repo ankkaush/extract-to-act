@@ -53,27 +53,27 @@ As built (Phase 18) — every router named below exists in `app/routers/`; the w
 ```mermaid
 flowchart TB
     subgraph api["FastAPI application"]
-        documents["documents router\nupload · get · list"]
-        review["review router\nqueue · correct · reject"]
-        approvals["approvals router\nqueue · approve · reject"]
-        actions["actions router\ndownstream action"]
-        files["files router\nsigned file access"]
-        dashboard["dashboard router\nmetrics"]
+        documents["documents router<br/>upload, get, list"]
+        review["review router<br/>queue, correct, reject"]
+        approvals["approvals router<br/>queue, approve, reject"]
+        actions["actions router<br/>downstream action"]
+        files["files router<br/>signed file access"]
+        dashboard["dashboard router<br/>metrics"]
     end
 
     subgraph db["PostgreSQL"]
-        tables["documents · extraction_results · line_items · vendors\nvalidation_results · review_events · approvals\nstate_history · accounting_actions · ap_ledger_entries"]
+        tables["documents, extraction_results, line_items, vendors,<br/>validation_results, review_events, approvals,<br/>state_history, accounting_actions, ap_ledger_entries"]
     end
 
     subgraph worker["Worker (app/worker.py)"]
-        recover["recover_document()\nresumes a stuck in-flight document\nnot yet scheduled to run continuously"]
+        recover["recover_document()<br/>resumes a stuck in-flight document<br/>not yet scheduled to run continuously"]
     end
 
-    subgraph adapters["Adapters — the only things touching an external system"]
-        extraction["ExtractionProvider\nMistralExtractionProvider"]
-        storage["StorageProvider\nLocalStorageProvider (S3-compatible: later)"]
-        accounting["AccountingProvider\nMockAccountingProvider"]
-        notification["NotificationProvider\nLogNotificationProvider (SMTP: later)"]
+    subgraph adapters["Adapters: the only things touching an external system"]
+        extraction["ExtractionProvider<br/>MistralExtractionProvider"]
+        storage["StorageProvider<br/>LocalStorageProvider (S3-compatible: later)"]
+        accounting["AccountingProvider<br/>MockAccountingProvider"]
+        notification["NotificationProvider<br/>LogNotificationProvider (SMTP: later)"]
     end
 
     client(["Client / reviewer / approver"]) -->|"Bearer token"| api
