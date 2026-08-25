@@ -45,14 +45,25 @@ VALID_FIELDS = {
 class FakeExtractionProvider:
     """Test double — never calls a real provider. Defaults to a complete,
     valid extraction (see VALID_FIELDS); pass `output` or `error` to
-    exercise a specific case.
+    exercise a specific case. `call_log`, if given, records every call —
+    used to prove an exact-hash duplicate never reaches this at all
+    (Phase 9's whole point: no re-spend on a known re-upload).
     """
 
-    def __init__(self, *, output: ExtractionOutput | None = None, error: Exception | None = None):
+    def __init__(
+        self,
+        *,
+        output: ExtractionOutput | None = None,
+        error: Exception | None = None,
+        call_log: list | None = None,
+    ):
         self._output = output
         self._error = error
+        self._call_log = call_log
 
     def extract(self, *, content: bytes, filename: str) -> ExtractionOutput:
+        if self._call_log is not None:
+            self._call_log.append(filename)
         if self._error is not None:
             raise self._error
         return self._output or ExtractionOutput(
@@ -78,9 +89,9 @@ def client(db_session, tmp_path):
     app.dependency_overrides.clear()
 
 
-def _override_extraction(*, output=None, error=None):
+def _override_extraction(*, output=None, error=None, call_log=None):
     def factory():
-        return FakeExtractionProvider(output=output, error=error)
+        return FakeExtractionProvider(output=output, error=error, call_log=call_log)
 
     app.dependency_overrides[documents_router.get_extraction_provider] = factory
 
@@ -234,6 +245,55 @@ def test_upload_with_near_miss_vendor_spelling_still_matches(client):
     response = _upload(client)
 
     assert response.json()["state"] == DocumentState.VALIDATED.value
+
+
+def test_exact_duplicate_file_reaches_duplicate_without_calling_extraction(client, db_session):
+    call_log: list = []
+    _override_extraction(call_log=call_log)
+
+    # Different Idempotency-Key headers, same bytes — Phase 4's
+    # request-level idempotency must NOT be what catches this; only
+    # Phase 9's content-hash check should.
+    first = _upload(client, headers={"Idempotency-Key": "key-a"})
+    second = _upload(client, headers={"Idempotency-Key": "key-b"})
+
+    assert first.json()["id"] != second.json()["id"]
+    assert first.json()["state"] == DocumentState.VALIDATED.value
+    assert second.json()["state"] == DocumentState.DUPLICATE.value
+    # Extraction ran exactly once — the duplicate never reached it.
+    assert len(call_log) == 1
+
+    assert _state_sequence(db_session, second.json()["id"]) == [
+        DocumentState.RECEIVED,
+        DocumentState.DUPLICATE,
+    ]
+
+
+def test_content_level_duplicate_with_different_file_bytes_reaches_duplicate(client):
+    # Different file bytes (so the exact-hash check doesn't catch this),
+    # same extracted vendor/invoice_number/total/date — the same invoice,
+    # re-scanned or re-typed as a different file.
+    first = _upload(client, content=PDF_BYTES)
+    second = _upload(client, content=PDF_BYTES + b"\n%extra padding, different hash")
+
+    assert first.json()["state"] == DocumentState.VALIDATED.value
+    assert second.json()["state"] == DocumentState.DUPLICATE.value
+
+
+def test_genuinely_different_invoices_same_vendor_are_not_flagged_as_duplicate(client):
+    first = _upload(client, content=PDF_BYTES)
+
+    output = ExtractionOutput(
+        provider_name="fake",
+        model_version="fake-1",
+        fields=_fields_with(invoice_number="INV-2099", total=250.0, subtotal=231.48, tax=18.52),
+    )
+    _override_extraction(output=output)
+    second = _upload(client, content=PDF_BYTES + b"\n%a genuinely different invoice")
+
+    assert first.json()["state"] == DocumentState.VALIDATED.value
+    assert second.json()["state"] == DocumentState.VALIDATED.value
+    assert second.json()["id"] != first.json()["id"]
 
 
 def test_repeated_request_with_same_idempotency_key_returns_existing_document(client):

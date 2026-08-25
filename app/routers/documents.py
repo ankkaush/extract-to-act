@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.auth import require_api_key
 from app.config import get_settings
 from app.db import get_session
+from app.duplicate_detection import find_content_duplicate, find_exact_hash_duplicate
 from app.extraction import ExtractionProvider, MistralExtractionProvider, build_extraction_result
 from app.ingestion import (
     FileTooLarge,
@@ -51,6 +52,80 @@ def get_storage_provider() -> StorageProvider:
 
 def get_extraction_provider() -> ExtractionProvider:
     return MistralExtractionProvider(api_key=get_settings().mistral_api_key)
+
+
+def _check_exact_hash_duplicate(session: Session, document: Document) -> bool:
+    """RECEIVED -> DUPLICATE, before extraction ever runs — see
+    docs/state-machine.md's discovered RECEIVED -> DUPLICATE transition
+    and app/duplicate_detection.py. Returns True if the document was
+    marked DUPLICATE (caller should stop processing it further).
+    """
+    candidates = session.execute(
+        select(Document.id, Document.content_hash)
+        .where(Document.content_hash == document.content_hash)
+        .where(Document.id != document.id)
+        .where(Document.state != DocumentState.FAILED)
+    ).all()
+
+    match = find_exact_hash_duplicate(document.content_hash, [tuple(row) for row in candidates])
+    if not match.is_duplicate:
+        return False
+
+    document.state = DocumentState.DUPLICATE
+    session.add(
+        StateHistory(
+            document_id=document.id,
+            from_state=DocumentState.RECEIVED,
+            to_state=DocumentState.DUPLICATE,
+            reason=match.reason,
+        )
+    )
+    session.commit()
+    return True
+
+
+def _check_content_duplicate(
+    session: Session, document: Document, extraction_result: ExtractionResult
+) -> bool:
+    """VALIDATING -> DUPLICATE, for the same invoice arriving as a
+    different file. Returns True if the document was marked DUPLICATE
+    (caller should skip the remaining validation rules — there's no
+    point checking required fields on a document about to be discarded).
+    """
+    candidates = session.execute(
+        select(
+            ExtractionResult.document_id,
+            ExtractionResult.vendor_name,
+            ExtractionResult.invoice_number,
+            ExtractionResult.total,
+            ExtractionResult.invoice_date,
+        )
+        .join(Document, Document.id == ExtractionResult.document_id)
+        .where(ExtractionResult.document_id != document.id)
+        .where(Document.state != DocumentState.FAILED)
+    ).all()
+
+    match = find_content_duplicate(
+        vendor_name=extraction_result.vendor_name,
+        invoice_number=extraction_result.invoice_number,
+        total=extraction_result.total,
+        invoice_date=extraction_result.invoice_date,
+        candidates=[tuple(row) for row in candidates],
+    )
+    if not match.is_duplicate:
+        return False
+
+    document.state = DocumentState.DUPLICATE
+    session.add(
+        StateHistory(
+            document_id=document.id,
+            from_state=DocumentState.VALIDATING,
+            to_state=DocumentState.DUPLICATE,
+            reason=match.reason,
+        )
+    )
+    session.commit()
+    return True
 
 
 def _run_extraction(
@@ -134,6 +209,11 @@ def _run_validation_step(
         )
     )
     session.commit()
+
+    if _check_content_duplicate(session, document, extraction_result):
+        # Already transitioned to DUPLICATE — no point running the other
+        # rules on a document about to be discarded either way.
+        return
 
     rule_results = run_validation(extraction_result)
 
@@ -228,6 +308,14 @@ async def upload_document(
         )
     )
     session.commit()
+
+    if _check_exact_hash_duplicate(session, document):
+        # Already transitioned to DUPLICATE — never spend a paid
+        # extraction call on a file we already know is a re-upload of
+        # something already submitted. See PLAN.md Phase 9's stated
+        # completion criteria.
+        session.refresh(document)
+        return document
 
     extraction_result = _run_extraction(
         session, document, content=raw, provider=extraction_provider

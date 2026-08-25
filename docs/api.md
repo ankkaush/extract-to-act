@@ -31,6 +31,13 @@ No new endpoint — validation runs synchronously immediately after extraction s
 ### Phase 8 — Vendor Matching (implemented)
 No new endpoint — vendor matching runs as one more rule inside the same validation step as Phase 7's checks (`docs/workflow.md` lists it as its own conceptual step, but the state machine has no dedicated "matching" state). A vendor name that doesn't fuzzy-match a known vendor closely enough is exactly as likely to send a document to `NEEDS_REVIEW` as a missing required field or a bad arithmetic check — same `validation_results` table, same `vendor:known` rule name. Known vendors are seeded via `python -m app.seed_vendors` (not automatic on startup — see `app/seed_vendors.py`).
 
+### Phase 9 — Duplicate Detection (implemented)
+No new endpoint — two independent checks, no worker or async step involved:
+- **Exact file-hash match**, checked at `RECEIVED`, before extraction ever runs — a `POST /documents` with content identical to a prior upload (any state except `FAILED`) returns `state: "DUPLICATE"` immediately, never spending a paid extraction call. This is distinct from the `Idempotency-Key` behavior (Phase 4): that catches the same *request* retried, this catches the same *file* submitted through a genuinely different request.
+- **Content-level match**, checked during `VALIDATING` (needs extracted fields) — the same invoice arriving as a different file (re-scanned, re-typed) is caught by an exact-after-normalization match on vendor + invoice number + total + invoice date together. A partial match (e.g. same vendor and date, different invoice number) is correctly treated as two different invoices, not flagged.
+
+`docs/state-machine.md` documents a `RECEIVED → DUPLICATE` transition added in this phase, alongside the originally-planned `VALIDATING → DUPLICATE`.
+
 ### Phase 10 — Human review
 - `GET /review` — the review queue: documents in `NEEDS_REVIEW`, with reason codes.
 - `GET /review/{id}` — a single document's original file reference plus extracted fields, for the side-by-side review UI.

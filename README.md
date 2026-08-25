@@ -10,7 +10,7 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 8 of 19 — Vendor Matching — complete.** An uploaded document is extracted (Mistral OCR), then deterministically validated — required fields, arithmetic consistency, and now a fuzzy match against a known-vendor table — before landing in `VALIDATED` or `NEEDS_REVIEW`, all in one synchronous request. Nothing looks at AI confidence to decide this; see [`app/validation.py`](app/validation.py) and [`app/vendor_matching.py`](app/vendor_matching.py). Duplicate detection and the actual human-review UI don't exist yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
+**Phase 9 of 19 — Duplicate Detection — complete.** An uploaded document is extracted (Mistral OCR), then deterministically validated — required fields, arithmetic consistency, a fuzzy match against a known-vendor table, and now duplicate detection — before landing in `VALIDATED`, `NEEDS_REVIEW`, or `DUPLICATE`, all in one synchronous request. An exact re-upload of the same file is caught before extraction ever runs (no wasted API call); the same invoice arriving as a different file is caught after extraction by an exact-after-normalization match on vendor, invoice number, total, and invoice date together. Nothing looks at AI confidence to decide any of this; see [`app/validation.py`](app/validation.py), [`app/vendor_matching.py`](app/vendor_matching.py), and [`app/duplicate_detection.py`](app/duplicate_detection.py). The actual human-review UI doesn't exist yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
 
 ## How the system works, briefly
 

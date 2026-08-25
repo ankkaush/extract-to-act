@@ -23,11 +23,14 @@ Every document moves through a single state machine, persisted after every trans
 ```
 RECEIVED → EXTRACTING → EXTRACTED → VALIDATING ─┬→ NEEDS_REVIEW → VALIDATED
                                                   └→ VALIDATED
-VALIDATING → DUPLICATE            (terminal, duplicate detected)
+RECEIVED → DUPLICATE              (terminal, exact file-hash match — see below)
+VALIDATING → DUPLICATE            (terminal, content-level match — see below)
 VALIDATED → ACTIONED → COMPLETED  (terminal, success)
 NEEDS_REVIEW → REJECTED           (terminal, reviewer rejects)
 any in-flight state → FAILED      (terminal, retries exhausted)
 ```
+
+**`RECEIVED → DUPLICATE` was added in Phase 9**, revising the original single-source diagram. The original design only anticipated `VALIDATING → DUPLICATE`, but Phase 9's own completion criteria requires an exact re-upload (identical file bytes, matched by content hash) to reach `DUPLICATE` *without spending a paid extraction call on it* — which is only possible if the check runs before `EXTRACTING`, not after. `VALIDATING → DUPLICATE` still exists separately for the case extraction genuinely has to run for: the same invoice arriving as a *different* file (re-scanned, re-typed) but matching an existing invoice's (vendor, invoice number, total, invoice date) once extracted. See `docs/reliability.md`, idempotency scenario 2, and `app/duplicate_detection.py`.
 
 A reviewer's correction moves a document from `NEEDS_REVIEW` to `VALIDATED`, rejoining the same forward path a touchless document takes — review is a detour, not a parallel pipeline.
 
