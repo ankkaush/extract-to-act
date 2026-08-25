@@ -55,6 +55,21 @@ class Settings(BaseSettings):
     def _blank_means_use_default(cls, value):
         return 1000.0 if value in (None, "") else value
 
+    # Phase 13 — see docs/reliability.md. retry_attempts bounds the
+    # in-request retry for a single external-provider call (extraction,
+    # accounting write) before it's treated as a technical failure.
+    # notification_retry_attempts is deliberately smaller — "retry
+    # briefly, then log and continue," never worth blocking the pipeline
+    # over. worker_stuck_timeout_seconds/worker_max_retries bound the
+    # separate, slower recovery loop for a document stuck mid-flight
+    # after a crash (app/worker.py) — a second, outer layer of bounding
+    # so a sustained outage still terminates in FAILED rather than the
+    # worker retrying forever.
+    retry_attempts: int = Field(default=3, alias="RETRY_ATTEMPTS")
+    notification_retry_attempts: int = Field(default=2, alias="NOTIFICATION_RETRY_ATTEMPTS")
+    worker_stuck_timeout_seconds: int = Field(default=300, alias="WORKER_STUCK_TIMEOUT_SECONDS")
+    worker_max_retries: int = Field(default=3, alias="WORKER_MAX_RETRIES")
+
 
 @lru_cache
 def get_settings() -> Settings:

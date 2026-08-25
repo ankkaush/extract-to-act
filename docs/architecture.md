@@ -21,7 +21,7 @@
 
 ## Process model
 
-One FastAPI application serves the upload endpoint, the review UI, and the metrics dashboard. A single background worker process — not a distributed queue — polls PostgreSQL for documents that need their next processing step and advances them through the state machine (`docs/state-machine.md`). See `docs/adr/0003-worker-model.md` for why a queue is not used.
+One FastAPI application serves the upload endpoint, the review UI, and the metrics dashboard. A single background worker process — not a distributed queue — polls PostgreSQL for documents that need their next processing step and advances them through the state machine (`docs/state-machine.md`). See `docs/adr/0003-worker-model.md` for why a queue is not used. The worker's recovery logic is implemented as of Phase 13 (`app/worker.py`); actually scheduling it to run continuously (a loop, a cron job, a Render background worker) is Phase 17's deployment concern, not built yet.
 
 ## The adapter boundary
 

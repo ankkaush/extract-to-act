@@ -18,6 +18,11 @@ failure is low-stakes and must never block the pipeline, so logging is
 an honest MVP behavior, not a placeholder pretending to be more.
 
 `check_action_eligibility` is pure — no I/O, no DB session.
+
+`notify_with_retry` implements docs/reliability.md's notification-failure
+row ("retry briefly, then log and continue — never block the pipeline")
+using the same bounded-backoff primitive (app/retry.py) the provider
+calls use, just with fewer attempts and a shorter delay.
 """
 
 from __future__ import annotations
@@ -31,7 +36,9 @@ from typing import Protocol
 from sqlalchemy.orm import Session
 
 from app.approval import requires_approval
+from app.config import get_settings
 from app.models import ApLedgerEntry
+from app.retry import RetriesExhausted, call_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -126,3 +133,35 @@ class LogNotificationProvider:
         # responsible for keeping that to IDs/amounts, not raw extracted
         # text).
         logger.info("notification: %s — %s", subject, message)
+
+
+def get_accounting_provider() -> AccountingProvider:
+    return MockAccountingProvider()
+
+
+def get_notification_provider() -> NotificationProvider:
+    return LogNotificationProvider()
+
+
+def notify_with_retry(notifier: NotificationProvider, *, subject: str, message: str) -> bool:
+    """Best-effort notification: retries briefly, then gives up without
+    raising — a notification must never block or unwind a state
+    transition. Returns whether it ultimately succeeded, so callers can
+    surface that (e.g. `DocumentActionOut.notification_sent`) without
+    treating it as an error.
+    """
+    settings = get_settings()
+    try:
+        call_with_retry(
+            lambda: notifier.notify(subject=subject, message=message),
+            attempts=settings.notification_retry_attempts,
+        )
+        return True
+    except RetriesExhausted as exc:
+        logger.warning(
+            "notification failed after %d attempt(s): %s — %s",
+            exc.attempts,
+            subject,
+            exc.last_error,
+        )
+        return False

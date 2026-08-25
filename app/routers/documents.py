@@ -1,14 +1,20 @@
 """Phase 4 — Document Ingestion & Storage; Phase 6 — Extraction Integration
-& Normalization; Phase 7 — Deterministic Validation. See
-docs/workflow.md steps 1-3 and docs/api.md.
+& Normalization; Phase 7 — Deterministic Validation; Phase 13 —
+Reliability & Recovery. See docs/workflow.md steps 1-3 and docs/api.md.
 
 Extraction and validation both run synchronously, inline in the upload
-request, rather than being handed off to a background worker —
-deliberately, because no worker exists yet (that's Phase 13's job:
-retries, crash recovery, decoupling from the HTTP request lifecycle).
-This is the honest minimal scope for each phase as it's built: wire the
-logic and the state transitions, not build reliability infrastructure
-ahead of its own named phase.
+request — there is still no worker deciding *when* to run them (that
+remains Phase 17's deployment concern for actually scheduling
+app/worker.py). What Phase 13 adds is *resumability*: `_attempt_extraction`
+and `_attempt_validation` below assume their document is already in the
+right in-flight state and can be called again safely, either
+immediately after `_begin_extraction`/`_begin_validation` (the normal
+upload-request path) or later by the worker recovering a document
+stuck mid-flight after a crash (docs/state-machine.md's crash-recovery
+section). Splitting "begin" (state transition) from "attempt" (the
+actual work) is what makes that reuse possible without re-doing or
+mis-recording the transition into the state a stuck document is
+already in.
 """
 
 import uuid
@@ -18,6 +24,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.accounting import NotificationProvider, get_notification_provider, notify_with_retry
 from app.auth import require_api_key
 from app.config import get_settings
 from app.db import get_session
@@ -38,6 +45,7 @@ from app.models import (
     ValidationResult,
     Vendor,
 )
+from app.retry import RetriesExhausted, call_with_retry
 from app.schemas import DocumentOut, ExtractionResultOut
 from app.storage import LocalStorageProvider, StorageProvider
 from app.validation import run_validation
@@ -131,15 +139,10 @@ def _check_content_duplicate(
     return True
 
 
-def _run_extraction(
-    session: Session, document: Document, *, content: bytes, provider: ExtractionProvider
-) -> ExtractionResult | None:
-    """Advances a RECEIVED document through EXTRACTING to EXTRACTED, or to
-    FAILED on any error. Writes the state_history audit trail either way.
-    Returns the persisted ExtractionResult on success, None on failure.
-    See docs/state-machine.md and docs/reliability.md — this is a
-    technical failure path (FAILED), not a business exception
-    (NEEDS_REVIEW), since extraction itself either worked or didn't.
+def _begin_extraction(session: Session, document: Document) -> None:
+    """RECEIVED -> EXTRACTING. Only called from the upload path — a
+    worker resuming a stuck document is already EXTRACTING and calls
+    `_attempt_extraction` directly, skipping this.
     """
     document.state = DocumentState.EXTRACTING
     session.add(
@@ -152,9 +155,31 @@ def _run_extraction(
     )
     session.commit()
 
+
+def _attempt_extraction(
+    session: Session,
+    document: Document,
+    *,
+    content: bytes,
+    provider: ExtractionProvider,
+    notifier: NotificationProvider,
+) -> ExtractionResult | None:
+    """Assumes `document.state` is already EXTRACTING (see
+    `_begin_extraction`). Retries the provider call with bounded backoff
+    (docs/reliability.md); on exhaustion moves the document to FAILED,
+    sends a best-effort alert, and returns None. Returns the persisted
+    ExtractionResult on success. See docs/state-machine.md and
+    docs/reliability.md — this is a technical failure path (FAILED), not
+    a business exception (NEEDS_REVIEW), since extraction itself either
+    worked or didn't.
+    """
+    settings = get_settings()
     try:
-        output = provider.extract(content=content, filename=document.original_filename)
-    except Exception as exc:  # noqa: BLE001 — recorded as a dead-lettered failure, not re-raised
+        output = call_with_retry(
+            lambda: provider.extract(content=content, filename=document.original_filename),
+            attempts=settings.retry_attempts,
+        )
+    except RetriesExhausted as exc:
         document.state = DocumentState.FAILED
         session.add(
             StateHistory(
@@ -164,10 +189,18 @@ def _run_extraction(
                 # Exception type + message only — never raw provider
                 # request/response content, which could carry sensitive
                 # document data. See docs/security.md.
-                reason=f"extraction failed: {type(exc).__name__}: {exc}",
+                reason=(
+                    f"extraction failed after {exc.attempts} attempt(s): "
+                    f"{type(exc.last_error).__name__}: {exc.last_error}"
+                ),
             )
         )
         session.commit()
+        notify_with_retry(
+            notifier,
+            subject="Document extraction dead-lettered",
+            message=f"Document {document.id} failed extraction after {exc.attempts} attempt(s).",
+        )
         return None
 
     extraction_result = build_extraction_result(document.id, output)
@@ -185,22 +218,10 @@ def _run_extraction(
     return extraction_result
 
 
-def _run_validation_step(
-    session: Session, document: Document, extraction_result: ExtractionResult
-) -> None:
-    """Advances an EXTRACTED document through VALIDATING to either
-    VALIDATED (every rule passed) or NEEDS_REVIEW (at least one failed).
-    Never FAILED — a validation failure is a business exception, not a
-    technical one; see docs/reliability.md's business-exception vs.
-    technical-failure distinction. Every rule's individual result is
-    persisted to validation_results, not just the summary reason on
-    state_history — see docs/data-model.md.
-
-    Vendor matching (Phase 8) is folded into this same step rather than
-    a separate state — docs/workflow.md lists it as its own conceptual
-    step, but the state machine has no dedicated "matching" state; both
-    are deterministic checks feeding the same VALIDATED/NEEDS_REVIEW
-    decision.
+def _begin_validation(session: Session, document: Document) -> None:
+    """EXTRACTED -> VALIDATING. Only called from the upload path — a
+    worker resuming a stuck document is already VALIDATING and calls
+    `_attempt_validation` directly, skipping this.
     """
     document.state = DocumentState.VALIDATING
     session.add(
@@ -213,6 +234,28 @@ def _run_validation_step(
     )
     session.commit()
 
+
+def _attempt_validation(
+    session: Session, document: Document, extraction_result: ExtractionResult
+) -> None:
+    """Assumes `document.state` is already VALIDATING (see
+    `_begin_validation`). Advances to either VALIDATED (every rule
+    passed) or NEEDS_REVIEW (at least one failed). Never FAILED — a
+    validation failure is a business exception, not a technical one
+    (docs/reliability.md), and every rule here is deterministic Python
+    with no external call, so there's nothing to retry-with-backoff:
+    re-running this on a worker-recovered document is always safe and
+    idempotent, it just repeats the same pure checks against the
+    already-persisted extraction_result. Every rule's individual result
+    is persisted to validation_results, not just the summary reason on
+    state_history — see docs/data-model.md.
+
+    Vendor matching (Phase 8) is folded into this same step rather than
+    a separate state — docs/workflow.md lists it as its own conceptual
+    step, but the state machine has no dedicated "matching" state; both
+    are deterministic checks feeding the same VALIDATED/NEEDS_REVIEW
+    decision.
+    """
     if _check_content_duplicate(session, document, extraction_result):
         # Already transitioned to DUPLICATE — no point running the other
         # rules on a document about to be discarded either way.
@@ -267,6 +310,7 @@ async def upload_document(
     session: Session = Depends(get_session),
     storage: StorageProvider = Depends(get_storage_provider),
     extraction_provider: ExtractionProvider = Depends(get_extraction_provider),
+    notifier: NotificationProvider = Depends(get_notification_provider),
 ):
     key = idempotency_key or str(uuid.uuid4())
 
@@ -320,11 +364,13 @@ async def upload_document(
         session.refresh(document)
         return document
 
-    extraction_result = _run_extraction(
-        session, document, content=raw, provider=extraction_provider
+    _begin_extraction(session, document)
+    extraction_result = _attempt_extraction(
+        session, document, content=raw, provider=extraction_provider, notifier=notifier
     )
     if extraction_result is not None:
-        _run_validation_step(session, document, extraction_result)
+        _begin_validation(session, document)
+        _attempt_validation(session, document, extraction_result)
 
     session.refresh(document)
     return document

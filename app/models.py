@@ -74,6 +74,12 @@ class Document(Base):
     state: Mapped[DocumentState] = mapped_column(
         Enum(DocumentState, name="document_state"), default=DocumentState.RECEIVED, index=True
     )
+    # Phase 13 — how many times the scheduled worker (app/worker.py) has
+    # attempted to recover this document from a stuck in-flight state.
+    # Bounds worker-level resumption separately from the in-request
+    # retry-with-backoff around a single provider call (app/retry.py) —
+    # see docs/reliability.md.
+    retry_count: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

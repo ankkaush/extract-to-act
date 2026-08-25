@@ -34,4 +34,4 @@ See `docs/adr/0003-worker-model.md` for the full reasoning. Every failure above 
 
 ## Where this is implemented and tested
 
-Phase 13 implements retry/backoff and dead-letter handling; every row above gets a test that forces that specific condition, including a simulated crash (writing a stuck in-flight state directly to the database and asserting the worker recovers it) rather than actually killing a process.
+**Phase 13 (implemented):** `app/retry.py`'s bounded exponential backoff covers the provider-timeout/rate-limit/notification rows; `app/worker.py`'s `recover_document()` covers the worker-crash row by resuming a document stuck in an in-flight state directly, and dead-letters it (`FAILED` + alert) once its own `retry_count` exceeds `WORKER_MAX_RETRIES` rather than retrying a sustained outage forever. Every row above that's testable without a real provider has a test forcing that specific condition, including simulated crashes — a stuck in-flight state written directly to the database (`tests/test_worker.py`), never an actually-killed process, per the plan below.

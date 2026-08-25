@@ -8,7 +8,7 @@ This document describes entities and relationships at a high level. Exact column
 
 | Entity | Purpose |
 |---|---|
-| `documents` | One row per uploaded file: storage reference, content hash, current state, idempotency key |
+| `documents` | One row per uploaded file: storage reference, content hash, current state, idempotency key, worker retry count (Phase 13) |
 | `extraction_results` | Per-document extraction output: normalized header fields (value/confidence/page/bbox), raw provider payload (`JSONB`), provider name + model version |
 | `invoice_line_items` | Line-item rows tied to an extraction result: description, quantity, unit price, line total, confidence |
 | `vendors` | Known-vendor table: name, normalized name, tax ID — used for deterministic fuzzy matching (Phase 8) |
@@ -17,13 +17,14 @@ This document describes entities and relationships at a high level. Exact column
 | `approvals` | Approval/rejection decisions: amount, threshold applied, approver, timestamp |
 | `state_history` | Append-only log of every state transition per document — backbone of both audit and crash recovery |
 | `accounting_actions` | Idempotency ledger for downstream writes: attempted/confirmed status, external record reference |
+| `ap_ledger_entries` | The mock AP ledger itself (Phase 12) — the payable record a confirmed write actually produced, distinct from the idempotency ledger above |
 
 ## Relationships
 
 - One `document` has at most one `extraction_results` row (re-extraction, if ever needed, creates a new row rather than overwriting).
 - One `extraction_results` row has many `invoice_line_items`.
 - One `document` has many `validation_results`, `review_events`, and `state_history` rows (one per rule run / correction / transition).
-- One `document` has at most one `approvals` row and at most one `accounting_actions` row.
+- One `document` has at most one `approvals` row, at most one `accounting_actions` row, and at most one `ap_ledger_entries` row.
 - `extraction_results.vendor_field` is matched against `vendors` at validation time (Phase 8); no foreign key is enforced at extraction time since a document may reference an unmatched/unknown vendor.
 
 ## Design notes
