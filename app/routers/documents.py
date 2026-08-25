@@ -29,10 +29,18 @@ from app.ingestion import (
     content_hash,
     sniff_mime_type,
 )
-from app.models import Document, DocumentState, ExtractionResult, StateHistory, ValidationResult
+from app.models import (
+    Document,
+    DocumentState,
+    ExtractionResult,
+    StateHistory,
+    ValidationResult,
+    Vendor,
+)
 from app.schemas import DocumentOut, ExtractionResultOut
 from app.storage import LocalStorageProvider, StorageProvider
 from app.validation import run_validation
+from app.vendor_matching import check_vendor_known
 
 router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(require_api_key)])
 
@@ -109,6 +117,12 @@ def _run_validation_step(
     technical-failure distinction. Every rule's individual result is
     persisted to validation_results, not just the summary reason on
     state_history — see docs/data-model.md.
+
+    Vendor matching (Phase 8) is folded into this same step rather than
+    a separate state — docs/workflow.md lists it as its own conceptual
+    step, but the state machine has no dedicated "matching" state; both
+    are deterministic checks feeding the same VALIDATED/NEEDS_REVIEW
+    decision.
     """
     document.state = DocumentState.VALIDATING
     session.add(
@@ -122,6 +136,10 @@ def _run_validation_step(
     session.commit()
 
     rule_results = run_validation(extraction_result)
+
+    known_vendors = session.execute(select(Vendor.id, Vendor.name)).all()
+    rule_results.append(check_vendor_known(extraction_result.vendor_name, list(known_vendors)))
+
     failed_rule_names = []
     for rule in rule_results:
         session.add(

@@ -28,6 +28,9 @@ No new endpoint — validation runs synchronously immediately after extraction s
 
 **Full synchronous chain as of Phase 7:** a successful `POST /documents` response never actually shows `state: "EXTRACTED"` — extraction success always continues straight into validation within the same request. The only end states an upload response can show are `VALIDATED`, `NEEDS_REVIEW`, or `FAILED` (extraction itself failed, before validation ever ran).
 
+### Phase 8 — Vendor Matching (implemented)
+No new endpoint — vendor matching runs as one more rule inside the same validation step as Phase 7's checks (`docs/workflow.md` lists it as its own conceptual step, but the state machine has no dedicated "matching" state). A vendor name that doesn't fuzzy-match a known vendor closely enough is exactly as likely to send a document to `NEEDS_REVIEW` as a missing required field or a bad arithmetic check — same `validation_results` table, same `vendor:known` rule name. Known vendors are seeded via `python -m app.seed_vendors` (not automatic on startup — see `app/seed_vendors.py`).
+
 ### Phase 10 — Human review
 - `GET /review` — the review queue: documents in `NEEDS_REVIEW`, with reason codes.
 - `GET /review/{id}` — a single document's original file reference plus extracted fields, for the side-by-side review UI.

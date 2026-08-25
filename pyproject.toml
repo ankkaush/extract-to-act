@@ -16,6 +16,11 @@ dependencies = [
     # against in the Phase 5 spike (mistralai.client.Mistral, not
     # mistralai.Mistral, and schema_definition not schema).
     "mistralai>=2.9,<3.0",
+    # Phase 8 — deterministic fuzzy vendor-name matching. Plain Python
+    # string similarity, not AI: see app/vendor_matching.py's docstring
+    # for why. Chosen over Postgres's pg_trgm to avoid a CREATE EXTENSION
+    # migration for what's currently a small, in-memory vendor list.
+    "rapidfuzz>=3.9",
 ]
 
 [project.optional-dependencies]

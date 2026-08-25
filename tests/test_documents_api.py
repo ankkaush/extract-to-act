@@ -19,9 +19,10 @@ from app.config import get_settings
 from app.db import get_session
 from app.extraction import ExtractedField, ExtractionOutput
 from app.main import app
-from app.models import DocumentState, StateHistory, ValidationResult
+from app.models import DocumentState, StateHistory, ValidationResult, Vendor
 from app.routers import documents as documents_router
 from app.storage import LocalStorageProvider
+from app.vendor_matching import normalize_vendor_name
 
 PDF_BYTES = b"%PDF-1.4\n%fake but valid-looking pdf content"
 AUTH_HEADER = {"Authorization": f"Bearer {get_settings().api_key}"}
@@ -66,6 +67,12 @@ def client(db_session, tmp_path):
         base_dir=tmp_path
     )
     _override_extraction()
+    # VALID_FIELDS' vendor ("Acme Corp") must be a known vendor for the
+    # default happy-path tests to reach VALIDATED rather than
+    # NEEDS_REVIEW — Phase 8 folds vendor matching into the same
+    # validation step as Phase 7's rules.
+    db_session.add(Vendor(name="Acme Corp", normalized_name=normalize_vendor_name("Acme Corp")))
+    db_session.commit()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -185,6 +192,42 @@ def test_upload_missing_due_date_alone_still_reaches_validated(client):
     # on its own must not send a document to review.
     output = ExtractionOutput(
         provider_name="fake", model_version="fake-1", fields=_fields_with(due_date=None)
+    )
+    _override_extraction(output=output)
+
+    response = _upload(client)
+
+    assert response.json()["state"] == DocumentState.VALIDATED.value
+
+
+def test_upload_with_unknown_vendor_reaches_needs_review(client, db_session):
+    output = ExtractionOutput(
+        provider_name="fake",
+        model_version="fake-1",
+        fields=_fields_with(vendor_name="Totally Unrelated Company Ltd"),
+    )
+    _override_extraction(output=output)
+
+    response = _upload(client)
+
+    assert response.json()["state"] == DocumentState.NEEDS_REVIEW.value
+    results = db_session.scalars(
+        select(ValidationResult).where(
+            ValidationResult.document_id == response.json()["id"],
+            ValidationResult.rule_name == "vendor:known",
+        )
+    ).all()
+    assert len(results) == 1
+    assert results[0].passed is False
+    assert "Totally Unrelated Company Ltd" in results[0].reason
+
+
+def test_upload_with_near_miss_vendor_spelling_still_matches(client):
+    # A typo/formatting variation of the known "Acme Corp" — deterministic
+    # fuzzy matching must still find it, not force a human to fix a
+    # cosmetic spelling difference.
+    output = ExtractionOutput(
+        provider_name="fake", model_version="fake-1", fields=_fields_with(vendor_name="Acme Corp.")
     )
     _override_extraction(output=output)
 

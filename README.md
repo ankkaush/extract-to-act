@@ -10,7 +10,7 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 7 of 19 — Deterministic Validation — complete.** An uploaded document is extracted (Mistral OCR) and then deterministically validated — required fields, arithmetic consistency — before landing in `VALIDATED` or `NEEDS_REVIEW`, all in one synchronous request. Nothing looks at AI confidence to decide this; see [`app/validation.py`](app/validation.py). Vendor/duplicate matching and the actual human-review UI don't exist yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
+**Phase 8 of 19 — Vendor Matching — complete.** An uploaded document is extracted (Mistral OCR), then deterministically validated — required fields, arithmetic consistency, and now a fuzzy match against a known-vendor table — before landing in `VALIDATED` or `NEEDS_REVIEW`, all in one synchronous request. Nothing looks at AI confidence to decide this; see [`app/validation.py`](app/validation.py) and [`app/vendor_matching.py`](app/vendor_matching.py). Duplicate detection and the actual human-review UI don't exist yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
 
 ## How the system works, briefly
 
@@ -38,7 +38,7 @@ Full plain-English workflow: [`docs/workflow.md`](docs/workflow.md).
 
 ## Tech stack (planned)
 
-Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a scheduled polling worker (no message queue), deployed on Render. Reasoning for each in [`docs/adr/`](docs/adr/). The extraction provider is intentionally undecided — see [`docs/extraction-strategy.md`](docs/extraction-strategy.md).
+Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a scheduled polling worker (no message queue), deployed on Render. Reasoning for each in [`docs/adr/`](docs/adr/). Extraction provider: Mistral OCR — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md).
 
 ## Local setup
 
@@ -46,6 +46,7 @@ Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a scheduled polling w
 cp .env.example .env
 docker compose up --build -d
 docker compose run --rm app alembic upgrade head
+docker compose run --rm app python -m app.seed_vendors
 ```
 
 The app is then available at `http://localhost:8000`. Uploading a document (auth required — the unmodified `.env.example` uses the insecure dev-only default key, `dev-only-not-for-production`; see `docs/adr/0008-api-authentication.md`):
@@ -56,7 +57,7 @@ curl -X POST http://localhost:8000/documents \
   -F "file=@some-invoice.pdf"
 ```
 
-Only PDF/PNG/JPEG/TIFF content is accepted (checked by file content, not extension), up to `MAX_UPLOAD_SIZE_BYTES`. **This call hits the real Mistral API** if `MISTRAL_API_KEY` is set in `.env` — extraction and deterministic validation both run synchronously as part of the upload (see `docs/api.md`), so the response only comes back once the document is fully `VALIDATED` or `NEEDS_REVIEW` (or `FAILED`, if extraction itself failed). Human review, vendor/duplicate matching, and approval don't exist yet — see `PLAN.md`.
+Only PDF/PNG/JPEG/TIFF content is accepted (checked by file content, not extension), up to `MAX_UPLOAD_SIZE_BYTES`. **This call hits the real Mistral API** if `MISTRAL_API_KEY` is set in `.env` — extraction, deterministic validation, and vendor matching all run synchronously as part of the upload (see `docs/api.md`), so the response only comes back once the document is fully `VALIDATED` or `NEEDS_REVIEW` (or `FAILED`, if extraction itself failed). A vendor not in the seeded list (`python -m app.seed_vendors`) routes to `NEEDS_REVIEW`, same as a missing field. Human review, duplicate detection, and approval don't exist yet — see `PLAN.md`.
 
 ### Running tests / lint without Docker
 
