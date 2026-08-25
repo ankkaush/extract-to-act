@@ -63,7 +63,7 @@ Full plain-English workflow: [`docs/workflow.md`](docs/workflow.md). System diag
 
 ## Tech stack
 
-Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a polling worker (no message queue), Render as the deployment target (Blueprint prepared, not yet live). Reasoning for each in [`docs/adr/`](docs/adr/). Extraction provider: Mistral OCR — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md).
+Python, FastAPI, PostgreSQL, SQLAlchemy + Alembic, Docker, a polling worker (no message queue), Render as the deployment target (deployment infrastructure complete, live deployment deliberately deferred — see Status above). Reasoning for each in [`docs/adr/`](docs/adr/). Extraction provider: Mistral OCR — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md).
 
 ## Local setup
 
