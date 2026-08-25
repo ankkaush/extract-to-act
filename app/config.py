@@ -23,6 +23,18 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
 
+    # Phase 17 — Render's managed-Postgres connection string (render.yaml's
+    # `fromDatabase.connectionString`) is a plain `postgresql://` URL.
+    # SQLAlchemy needs the driver in the scheme to pick psycopg3 (the only
+    # driver installed — see pyproject.toml); without this, production
+    # would fail to connect at all, not just use a slower fallback.
+    @field_validator("database_url", mode="after")
+    @classmethod
+    def _ensure_psycopg_driver(cls, value: str) -> str:
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
+
     # Phase 4 — see docs/adr/0008-api-authentication.md for why a shared
     # token is sufficient for now, and what it doesn't cover yet.
     api_key: str = Field(default="dev-only-not-for-production", alias="API_KEY")
