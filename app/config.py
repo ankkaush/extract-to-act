@@ -70,6 +70,15 @@ class Settings(BaseSettings):
     worker_stuck_timeout_seconds: int = Field(default=300, alias="WORKER_STUCK_TIMEOUT_SECONDS")
     worker_max_retries: int = Field(default=3, alias="WORKER_MAX_RETRIES")
 
+    # Phase 16 — see docs/cost-strategy.md, "What is measured vs. what
+    # is estimated": this is the one dashboard number that's an
+    # estimate, not a measurement, and this is its stated, adjustable
+    # assumption — a placeholder figure, not researched AP-industry
+    # data, same spirit as approval_threshold_amount above.
+    estimated_manual_minutes_per_document: float = Field(
+        default=8.0, alias="ESTIMATED_MANUAL_MINUTES_PER_DOCUMENT"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

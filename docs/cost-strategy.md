@@ -29,6 +29,6 @@ Routing the Phase 5 spike primarily through Azure's and Mistral's free tiers mea
 
 **Roughly 150–250 real calls, under $2–3 total.** Full breakdown in `docs/testing-strategy.md`. The overwhelming majority of test runs during actual development touch zero real API calls, real or free-tier.
 
-## What is measured vs. what is estimated (business metrics, Phase 16)
+## What is measured vs. what is estimated (business metrics, Phase 16 — implemented)
 
 Straight-through-processing rate, review rate, average processing time, and correction rate are all directly observable from system timestamps and state history — genuinely measured, no assumption baked in. "Estimated time saved" (documents processed × assumed manual minutes) is explicitly an *estimate*, shown on the dashboard with its assumption stated and adjustable, never presented as a measured number. This distinction matters enough to state here, not just in Phase 16 — an honest cost/value story requires not overclaiming savings any more than it requires not overclaiming infrastructure cost.

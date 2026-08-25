@@ -149,3 +149,18 @@ class DocumentActionOut(BaseModel):
     document: DocumentOut
     accounting_action: AccountingActionOut
     notification_sent: bool
+
+
+class DashboardMetricsOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    total_processed: int
+    straight_through_count: int
+    straight_through_rate: float
+    needs_review_count: int
+    review_rate: float
+    corrected_count: int
+    correction_rate: float
+    average_processing_time_seconds: float | None
+    estimated_manual_minutes_per_document: float
+    estimated_minutes_saved: float
