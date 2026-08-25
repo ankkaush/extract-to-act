@@ -266,6 +266,30 @@ class AccountingAction(Base):
     document: Mapped["Document"] = relationship(back_populates="accounting_action")
 
 
+class ApLedgerEntry(Base):
+    """The mock accounts-payable ledger itself — Phase 12's stand-in for
+    a real downstream accounting system (Xero/QuickBooks, Phase 19
+    stretch scope). Distinct from `AccountingAction`: that table is the
+    idempotency ledger tracking *whether a write happened*; this table
+    is the payable record the write actually produced. See
+    docs/architecture.md, "Mock ledger vs. real integration."
+    """
+
+    __tablename__ = "ap_ledger_entries"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id"), unique=True
+    )
+    vendor_name: Mapped[str] = mapped_column(String(512))
+    invoice_number: Mapped[str] = mapped_column(String(128))
+    invoice_date: Mapped[datetime] = mapped_column(Date)
+    due_date: Mapped[datetime | None] = mapped_column(Date, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3))
+    total: Mapped[float] = mapped_column(Numeric(12, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 __all__ = [
     "Base",
     "DocumentState",
@@ -280,4 +304,5 @@ __all__ = [
     "Approval",
     "StateHistory",
     "AccountingAction",
+    "ApLedgerEntry",
 ]

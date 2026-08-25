@@ -58,6 +58,13 @@ Not implemented: the smaller "missing a PO" approval floor `docs/workflow.md` me
 
 `ApprovalQueueItemOut`/`ApprovalDecisionIn`/`ApprovalRejectionIn`/`ApprovalActionOut` shapes: see `app/schemas.py`.
 
+### Phase 12 — Downstream Accounting Action (implemented)
+- `POST /documents/{id}/action` — the only endpoint this phase adds. Requires `state == VALIDATED` and, if the document is at or above the approval threshold, an existing `approvals` row (`409` "awaiting approval..." otherwise). Writes an `accounting_actions` row `ATTEMPTED` before the write (idempotency-first, per `docs/reliability.md` scenario 3), creates the actual payable record in the mock `ap_ledger_entries` table (`app/accounting.py`'s `MockAccountingProvider`), marks the `accounting_actions` row `CONFIRMED`, and moves the document `VALIDATED → ACTIONED → COMPLETED`. Best-effort logs a notification (`LogNotificationProvider`) — a notification failure never blocks or unwinds the write; `notification_sent: false` in the response is the only sign it happened. A repeated call after `COMPLETED` returns the existing result rather than writing a second ledger entry (`accounting_actions.document_id` is unique). If the accounting write itself fails, the document moves to `FAILED` and the endpoint returns `502`.
+
+No worker exists yet to call this automatically — see `docs/adr/0003-worker-model.md`; Phase 13 adds the scheduled worker that would invoke the same underlying logic without a person calling the endpoint by hand. A document stuck `ACTIONED` from a crash between the `ATTEMPTED` and `CONFIRMED` writes is *not* auto-resumed by this endpoint (it just 409s as "not VALIDATED") — resuming that specific case is explicitly Phase 13's job.
+
+`DocumentActionOut`/`AccountingActionOut` shapes: see `app/schemas.py`.
+
 ### Phase 16 — Observability
 - `GET /dashboard` — the metrics summary (straight-through rate, review rate, average processing time, etc. — see `docs/cost-strategy.md` for which are measured vs. estimated).
 

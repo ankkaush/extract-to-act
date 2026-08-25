@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models import ApprovalDecision, DocumentState
+from app.models import AccountingActionStatus, ApprovalDecision, DocumentState
 
 
 class DocumentOut(BaseModel):
@@ -130,3 +130,22 @@ class ApprovalActionOut(BaseModel):
 
     document: DocumentOut
     approval: ApprovalOut
+
+
+class AccountingActionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    document_id: uuid.UUID
+    status: AccountingActionStatus
+    external_reference: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentActionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document: DocumentOut
+    accounting_action: AccountingActionOut
+    notification_sent: bool
