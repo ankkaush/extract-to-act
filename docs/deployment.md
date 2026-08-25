@@ -23,9 +23,13 @@ All configuration is via environment variables (see `.env.example` for the full 
 
 Deployment happens in Phase 17, once the application is feature-complete — not before, since deploying an unfinished system to a public URL adds no value and this project has no need for continuous staged rollouts at its scale.
 
-## Deploying (Phase 17)
+## Deploying (Phase 17) — prepared, actual deployment deliberately deferred
 
-`render.yaml` at the repo root is a Render Blueprint — infrastructure as code for the web service and its managed Postgres database. This is prepared and reviewable in the repo, but the account-level actions below are necessarily manual: they require a real Render account and real production secrets that should never pass through an agent or be committed anywhere.
+`render.yaml` at the repo root is a Render Blueprint — infrastructure as code for the web service and its managed Postgres database, reviewed and locally verified (the exact `dockerCommand` Render runs was executed against the real built image). It is ready to use whenever deployment actually happens.
+
+**The deploy itself has not been triggered, on purpose.** A prior, separate project hit a real Render deployment issue; rather than repeat an unverified approach or spend attempts against this project's free-tier limits testing it, the project owner chose to defer the live deployment step until that's understood — this is a deliberate pause, not a blocker in this repo's own readiness. Nothing below has been run.
+
+When deployment does happen, the account-level actions are necessarily manual: they require a real Render account and real production secrets that should never pass through an agent or be committed anywhere.
 
 1. **Push this repo to GitHub** if it isn't already (Render deploys from a Git repo, not a local directory).
 2. In the Render dashboard: **New +** → **Blueprint**, connect the GitHub repo. Render reads `render.yaml` and proposes the web service + database.
