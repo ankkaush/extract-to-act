@@ -17,8 +17,11 @@ This describes the eventual API surface, derived from the workflow (`docs/workfl
 
 `DocumentOut` shape: `{id, state, original_filename, mime_type, content_hash, idempotency_key, created_at, updated_at}`.
 
-### Phase 6 — Extraction
-- `GET /documents/{id}/extraction` — normalized extracted fields, confidence, and provenance for a document (read-only; extraction itself is triggered internally by the worker, not via API call).
+### Phase 6 — Extraction (implemented)
+- `GET /documents/{id}/extraction` — normalized extracted fields (with per-field confidence/page/bbox/source_text where the provider supplies them), line items, and the promoted header columns. `404` if the document doesn't exist, or if extraction hasn't produced a result (e.g. it failed — check `GET /documents/{id}`'s `state`).
+- Extraction is **not** a separate call — `POST /documents` runs it synchronously as part of the upload request (`RECEIVED` → `EXTRACTING` → `EXTRACTED`/`FAILED`) and only returns once it's done. There's no background worker yet (that's Phase 13); this is a deliberate, documented simplification, not an oversight — see `app/routers/documents.py`.
+
+`ExtractionResultOut` shape: `{id, document_id, provider_name, provider_model_version, vendor_name, invoice_number, invoice_date, due_date, currency, subtotal, tax, total, fields, line_items, created_at}`.
 
 ### Phase 10 — Human review
 - `GET /review` — the review queue: documents in `NEEDS_REVIEW`, with reason codes.

@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     storage_local_dir: str = Field(default="/app/data/uploads", alias="STORAGE_LOCAL_DIR")
     max_upload_size_bytes: int = Field(default=20 * 1024 * 1024, alias="MAX_UPLOAD_SIZE_BYTES")
 
+    # Phase 6 — see docs/adr/0006-extraction-provider.md. No safe dev-only
+    # default like api_key/app_secret_key above: this hits a real external
+    # provider, so an unset key must fail at call time in production, not
+    # silently authenticate. Defaults to "" only so Settings() can still be
+    # constructed in contexts that never call the provider (tests override
+    # get_extraction_provider() directly — see app/routers/documents.py).
+    mistral_api_key: str = Field(default="", alias="MISTRAL_API_KEY")
+
 
 @lru_cache
 def get_settings() -> Settings:

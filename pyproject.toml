@@ -11,6 +11,11 @@ dependencies = [
     "alembic>=1.13",
     "psycopg[binary]>=3.1",
     "python-multipart>=0.0.9",
+    # Phase 6 — the selected ExtractionProvider (docs/adr/0006-extraction-provider.md).
+    # Version floor matches what app/extraction.py was actually verified
+    # against in the Phase 5 spike (mistralai.client.Mistral, not
+    # mistralai.Mistral, and schema_definition not schema).
+    "mistralai>=2.9,<3.0",
 ]
 
 [project.optional-dependencies]
@@ -21,14 +26,11 @@ dev = [
     "pre-commit>=3.8",
 ]
 # Phase 5 spike only — deliberately not a dependency of the application
-# itself. See spike/README.md, "Why not part of the application".
+# itself (mistralai moved to the core dependencies above in Phase 6, once
+# it became a real production integration, not just an evaluation
+# candidate). See spike/README.md, "Why not part of the application".
 spike = [
     "azure-ai-documentintelligence>=1.0",
-    # Floor raised to the version spike/providers/mistral_provider.py was
-    # actually verified against (2.9.4) after `mistralai>=1.0` silently
-    # resolved to a version whose public API had moved — see
-    # docs/adr/0006-extraction-provider.md and spike/test_provider_readiness.py.
-    "mistralai>=2.9,<3.0",
     # Floor raised to the version spike/providers/claude_provider.py was
     # verified against (1.0.0) via static introspection of the response
     # types and method signature — see spike/test_provider_readiness.py.

@@ -48,10 +48,13 @@ Run 18 representative synthetic invoices through a real extraction provider, eva
 
 **Completion criteria:** met.
 
-## Phase 6 — Extraction Integration & Normalization ⚪
+## Phase 6 — Extraction Integration & Normalization ✅
 
 Wire the chosen provider(s) behind an `ExtractionProvider` interface; map raw responses into the normalized field/confidence/provenance schema.
 **Depends on:** Phase 4's ingestion pipeline; Phase 5's provider decision.
+**Built:** `app/extraction.py` — the `ExtractionProvider` Protocol, `ExtractedField`/`ExtractedLineItem`/`ExtractionOutput` dataclasses, `MistralExtractionProvider` (the real integration, using the exact import path and `schema_definition` field name the Phase 5 spike verified — deliberately duplicated rather than imported from `spike/`, which stays a throwaway evaluation package), and `build_extraction_result()` (pure normalization into `ExtractionResult`/`InvoiceLineItem` rows). `app/routers/documents.py` now runs extraction synchronously as part of `POST /documents` (`RECEIVED` → `EXTRACTING` → `EXTRACTED`, or → `FAILED` on any exception, with a redacted reason recorded) — synchronous because no background worker exists yet (Phase 13), a deliberate scope decision, not an oversight. New `GET /documents/{id}/extraction` endpoint. `mistralai` moved from the spike-only dependency group to a real core dependency.
+**Verified, not assumed:** 8 new/updated tests in `tests/test_documents_api.py` (upload → `EXTRACTED` with correct state-history sequence; extraction failure → `FAILED`; `GET .../extraction` returns normalized fields with provenance; `404` when extraction failed) plus 6 pure-logic tests in `tests/test_extraction.py` (number/date coercion, including the exact "unparseable date must not crash, must return `None`" case the real Phase 5 run surfaced) — all using a `FakeExtractionProvider` dependency override, never a real network call. A real bug was caught by actually running the suite, not assumed away: the default test fixture initially passed the fake provider *class* instead of a zero-arg factory to `dependency_overrides`, which made FastAPI try to treat the class's `output`/`error` constructor parameters as HTTP request parameters and fail with a Pydantic schema error on `Exception | None` — fixed before commit. Docker image rebuilt and confirmed to still build and serve `/health` correctly with the new dependency; the real upload endpoint was deliberately **not** exercised against the live Mistral key during verification, to avoid an unauthorized real API call outside Phase 5's already-completed spike.
+**Completion criteria:** met — an uploaded document reaches `EXTRACTED` with normalized, provenance-tagged fields in the database, using only a fake provider in tests.
 
 ## Phase 7 — Deterministic Validation ⚪
 

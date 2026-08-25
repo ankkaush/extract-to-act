@@ -112,7 +112,12 @@ def test_evaluate_provider_counts_errored_documents_separately(tmp_path, monkeyp
     assert result["overall_field_accuracy"] is None  # no fields scored — only an error
 
 
-def test_evaluate_provider_with_no_results_returns_not_run_marker():
+def test_evaluate_provider_with_no_results_returns_not_run_marker(tmp_path, monkeypatch):
+    # Isolated from the real spike/results/ — without this, the test
+    # depended on nothing having been run for real yet, which stopped
+    # being true once Phase 5's actual Mistral run populated that
+    # directory locally (gitignored, but still present on disk).
+    monkeypatch.setattr("spike.evaluate.RESULTS_DIR", tmp_path)
     result = evaluate_provider("mistral", GROUND_TRUTH)
     assert result["documents_evaluated"] == 0
     assert result["critical_errors"] == []
