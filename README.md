@@ -10,7 +10,7 @@ See [`docs/problem.md`](docs/problem.md) for the full business-problem writeup, 
 
 ## Status
 
-**Phase 4 of 19 — Document Ingestion & Storage — complete.** Documents can be uploaded, validated, stored, and retrieved via the API; nothing downstream (extraction, validation, review) exists yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
+**Phase 5 of 19 — Extraction Provider Evaluation — complete.** Mistral OCR is the selected extraction provider, decided from a real 18-document evaluation run (98% business-critical-field accuracy) — see [`docs/adr/0006-extraction-provider.md`](docs/adr/0006-extraction-provider.md). Nothing downstream (extraction integration, validation, review) is wired into the application yet. See [`PLAN.md`](PLAN.md) for the full phase roadmap and current progress.
 
 ## How the system works, briefly
 

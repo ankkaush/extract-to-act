@@ -7,26 +7,27 @@ evidence for the extraction-provider decision in
 [`docs/extraction-strategy.md`](../docs/extraction-strategy.md) and
 [`docs/adr/0006-extraction-provider.md`](../docs/adr/0006-extraction-provider.md).
 
-## Status
+## Status — complete
 
-**The synthetic evaluation dataset is generated and verified.** 18
-documents in `spike/samples/`, ground truth in `spike/ground_truth/` —
-see "The dataset" below. The scoring logic (`spike/evaluate.py`) has been
-run against both synthetic fixtures and the real ground truth files and
-confirmed correct, including the critical-field-error reporting.
+**Real run done. Mistral OCR is the selected provider.** 18/18 documents
+processed for $0.076 total, 98% overall and business-critical-field
+accuracy against the authoritative ground truth. Full results, every
+named error, and what each one means: `docs/extraction-strategy.md`,
+"Real results" — the short version is in `spike/report.md`.
+`docs/adr/0006-extraction-provider.md` has the final decision.
 
-**The empirical comparison is scoped to Mistral OCR and Claude vision
-only.** Azure Document Intelligence is intentionally excluded — it's an
-optional candidate, not a requirement, and two sufficiently different
-providers are enough to reach a decision. See
-`docs/adr/0006-extraction-provider.md`. Azure's provider module and
-readiness test stay in the repo as a documented, ready option, but no
-Azure API call is planned as part of this comparison.
+**Mistral only — not a comparison.** Azure was excluded from the start
+by scope decision (optional candidate, not required). Claude was
+excluded from the real run because the Anthropic credential in this
+environment was exposed during diagnosis and is treated as compromised
+— no call was made with it. Both providers' wrapper code and readiness
+tests remain in the repo, verified against their real SDKs, ready to run
+if a trusted key exists later. See `docs/adr/0006-extraction-provider.md`
+for what this single-provider (not comparative) evidence does and
+doesn't support.
 
-**Not yet run for real, execution currently paused.** A first attempt
-surfaced and fixed two genuine SDK-shape bugs in the Mistral wrapper —
-found via static package introspection with no network call and no
-credentials touched:
+**Two real Mistral SDK bugs were found and fixed before spending
+anything**, via static package introspection with no network call:
 
 - `from mistralai import Mistral` is wrong on the installed SDK
   (`mistralai==2.9.4`); the client class lives at
@@ -35,22 +36,14 @@ credentials touched:
 - The JSON-schema field is `schema_definition`, not `schema`, on
   `JSONSchemaTypedDict`.
 
-Both are fixed in `spike/providers/mistral_provider.py` and now
-statically guarded by `spike/test_provider_readiness.py`, so the same
-regression can't silently reappear. Execution is paused for reasons
-unrelated to the providers themselves (credential-safety, not code) —
-see `PLAN.md` Phase 5 for the full account.
+Both are fixed in `spike/providers/mistral_provider.py` and statically
+guarded by `spike/test_provider_readiness.py`.
 
-Everything that can be done without a real provider call has been:
-each provider module is split into a real-I/O `extract()` and a pure
-`parse_result()`/`parse_response()` that maps an SDK-response-shaped
-object to the normalized schema, unit-tested against hand-built fake
-response objects with no SDK package installed and no network call. That
-doesn't eliminate the risk of a real API returning a subtly different
-shape than documented, but it does mean the first real run is testing
-*provider behavior*, not also debugging basic field-mapping bugs at the
-same time — which is exactly what happened with Mistral above, caught
-before spending anything.
+**One transient failure during the real run:** `inv_04_no_line_items`
+returned a `404 No file matches the given query` on first attempt — a
+race between the file upload and the immediate signed-URL fetch, not a
+code bug. Resolved with a single targeted retry of that one document
+only; not repeated across the other 17.
 
 ## Tests
 

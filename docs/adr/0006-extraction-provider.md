@@ -1,28 +1,39 @@
-# ADR 0006: Extraction provider — DEFERRED (empirical comparison scoped to Mistral vs. Claude)
+# ADR 0006: Extraction provider — Mistral OCR
 
-**Status:** Deferred, pending the real Phase 5 run
-**Confidence:** N/A — not decided
+**Status:** Accepted
+**Confidence:** Medium — a real, single-provider empirical validation, not a comparative one. See caveats below.
 
 ## Decision
 
-Not made yet. This ADR remains a placeholder so the deferral itself is documented rather than silently assumed. What *has* been decided, explicitly, by the project owner: **the empirical comparison is scoped to Mistral OCR and Claude vision only — Azure Document Intelligence is intentionally excluded from this experiment.**
+Mistral OCR is the `ExtractionProvider` implementation for Phase 6.
 
-## Why Azure is excluded from the empirical comparison
+## Evidence
 
-Azure was one of several candidates considered in the original discovery work (`docs/extraction-strategy.md`), but it is a candidate, not a requirement — the project needs a working extraction provider, not specifically a three-way comparison. With two viable, sufficiently different candidates already in hand (Mistral: cheap, general-purpose OCR with native structured output; Claude: no native OCR/confidence layer, strongest semantic flexibility), forcing a third provider into the spike adds cost, complexity, and Azure account setup for a comparison that doesn't need it to reach a decision. This is a scope decision, not a judgment that Azure is unsuitable — it stays a documented option (`spike/providers/azure_provider.py` and its readiness test remain in the repo) if a future need reopens the question.
+A real run against the full 18-document synthetic dataset (`spike/invoice_specs.py`), evaluated against the authoritative ground truth: 18/18 documents processed, 98% overall field accuracy, 98% business-critical-field accuracy (invoice number, invoice date, due date, currency, subtotal, tax, total), at a real cost of $0.076 total. Full results, every named error, and what each one means: `docs/extraction-strategy.md`, "Real results."
 
-## Why this is otherwise still deferred
+## Why Mistral, and why not a comparison
 
-The earlier discovery work concluded that a confident pick could not be justified from documentation and third-party benchmarks alone — those sources are marketing-adjacent, not evidence from this project's own documents. Phase 5 exists specifically to replace that assumption with a small empirical spike against the project's own 18-document synthetic dataset (`spike/invoice_specs.py`), scored on both aggregate and business-critical-field accuracy (`spike/evaluate.py`).
+Mistral was tested against its own bar (does it work, is it accurate enough, is it affordable), not against Claude or Azure head-to-head:
 
-## Status of the real run
+- **Azure** was excluded from the start by explicit project owner decision — an optional candidate, not a requirement (see the original version of this ADR in git history for that reasoning, which still stands).
+- **Claude** was excluded from the real run because the Anthropic credential in this environment was exposed during diagnosis of an unrelated issue and is treated as compromised — no call was made with it, by explicit instruction.
 
-A first attempt at the real Mistral + Claude comparison surfaced two genuine bugs in `spike/providers/mistral_provider.py` — the installed SDK's public client class lives at `mistralai.client.Mistral`, not `mistralai.Mistral`, and the JSON-schema field name is `schema_definition`, not `schema`. Both were found and fixed through static package introspection (no network call, no credentials touched) and are now covered by `spike/test_provider_readiness.py`, which statically guards against reintroducing either regression. Execution of the real comparison is currently paused for credential-safety reasons — see `PLAN.md` Phase 5 for the full account and exactly what remains.
+This means the decision rests on Mistral's own results being good enough, not on Mistral beating an alternative. That's a materially different, and weaker, form of evidence than the original three-way (later two-way) comparison this ADR was meant to produce — worth being honest about rather than presenting as more rigorous than it is.
 
-## What is already known, pending the real run
+## Alternatives considered
 
-See `docs/extraction-strategy.md` for the current comparison table, including free-tier terms, native confidence/provenance support, and rough per-document cost for each candidate.
+- **Azure Document Intelligence** — not tested empirically; excluded by scope decision, not by evidence. Remains a documented, ready option (`spike/providers/azure_provider.py`, covered by `spike/test_provider_readiness.py`) if a future need reopens the question.
+- **Claude vision** — not tested empirically; excluded by credential-safety necessity, not by evidence or preference. The wrapper code is verified correct against the installed SDK (`spike/test_provider_readiness.py`) and ready to run the moment a trusted key exists.
+- **AWS Textract, Google Document AI, Tesseract** — never seriously in contention; see `docs/extraction-strategy.md`'s background comparison table.
 
-## What will complete this ADR
+## Known gap this decision carries into Phase 6
 
-Once the real Mistral vs. Claude run and evaluation complete, this document will be replaced with the actual decision, its supporting evidence (per-field and business-critical-field accuracy, confidence calibration, itemized errors), and the confidence-threshold starting points derived from it. If a future need reopens the Azure question, that would be a separate, explicitly-scoped follow-up — not a silent expansion of this ADR.
+Mistral's schema-constrained structured-output call returned **no per-field confidence** in the real run — confirmed empirically, not merely suspected from documentation. The original architecture's plan to route human review via per-field confidence thresholds (the 95%/90%/70% draft bands) has no field-level number to threshold against for this provider. Phase 6/7 must design review-routing around deterministic validation failures and targeted plausibility checks instead — see `docs/extraction-strategy.md`, "What this means for Phase 6," for the specifics this run surfaced (currency and due-date fields each produced a real critical-field error and need an extra deterministic check layered on top).
+
+## What would change this decision
+
+- A future run with a trusted Claude key showing materially better accuracy or, critically, better handling of the "return null rather than hallucinate" failure mode Mistral exhibited on `inv_13`'s due date.
+- Mistral's structured-output confidence gap turning out to matter more in practice than expected once Phase 7's deterministic-only review routing is actually built and tested against a wider document set than this synthetic 18.
+- Azure being reconsidered if a concrete need for native per-field confidence and bounding boxes outweighs the cost/complexity of adding a second provider.
+
+None of these are scheduled work — they're the conditions under which this ADR would be reopened, not a plan to reopen it.
