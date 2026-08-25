@@ -158,10 +158,13 @@ def notify_with_retry(notifier: NotificationProvider, *, subject: str, message: 
         )
         return True
     except RetriesExhausted as exc:
+        # Exception TYPE only, never its message — LogNotificationProvider
+        # isn't credentialed today, but a future real SMTP adapter would
+        # be; see docs/security.md's "Secret-safe debugging practice".
         logger.warning(
-            "notification failed after %d attempt(s): %s — %s",
+            "notification failed after %d attempt(s): %s (last error type: %s)",
             exc.attempts,
             subject,
-            exc.last_error,
+            type(exc.last_error).__name__,
         )
         return False

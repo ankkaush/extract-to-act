@@ -135,9 +135,14 @@ def _attempt_action(
                 document_id=document.id,
                 from_state=DocumentState.ACTIONED,
                 to_state=DocumentState.FAILED,
+                # Exception TYPE only, never its message — see
+                # docs/security.md's "Secret-safe debugging practice".
+                # MockAccountingProvider isn't credentialed today, but a
+                # future real adapter (Xero/QuickBooks, Phase 19) would
+                # be, and this code path shouldn't need to change then.
                 reason=(
-                    f"accounting write failed after {exc.attempts} attempt(s): "
-                    f"{type(exc.last_error).__name__}: {exc.last_error}"
+                    f"accounting write failed after {exc.attempts} attempt(s), "
+                    f"last error type: {type(exc.last_error).__name__}"
                 ),
             )
         )

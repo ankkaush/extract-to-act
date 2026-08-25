@@ -186,12 +186,16 @@ def _attempt_extraction(
                 document_id=document.id,
                 from_state=DocumentState.EXTRACTING,
                 to_state=DocumentState.FAILED,
-                # Exception type + message only — never raw provider
-                # request/response content, which could carry sensitive
-                # document data. See docs/security.md.
+                # Exception TYPE only, never its message — see
+                # docs/security.md's "Secret-safe debugging practice": a
+                # credentialed SDK's own exception text has, in this
+                # exact project, echoed the Authorization header back
+                # verbatim once already. A fixed, reviewed phrase here
+                # can never leak what a lower-level transport error
+                # happened to embed.
                 reason=(
-                    f"extraction failed after {exc.attempts} attempt(s): "
-                    f"{type(exc.last_error).__name__}: {exc.last_error}"
+                    f"extraction failed after {exc.attempts} attempt(s), "
+                    f"last error type: {type(exc.last_error).__name__}"
                 ),
             )
         )

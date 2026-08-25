@@ -1,0 +1,7 @@
+# Known false positive, verified during Phase 14's security review:
+# gitleaks' curl-auth-header heuristic flags README.md's example curl
+# command, which uses the documented insecure DEV-ONLY default API key
+# (`dev-only-not-for-production`, app/config.py's own fallback value) —
+# not a real credential. Ignored by exact fingerprint so a genuinely
+# new secret elsewhere still gets caught.
+6db48231fe4115b54ae1d8697814c08941f675fe:README.md:curl-auth-header:54
