@@ -47,7 +47,10 @@ router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depend
 
 
 def get_storage_provider() -> StorageProvider:
-    return LocalStorageProvider(base_dir=Path(get_settings().storage_local_dir))
+    settings = get_settings()
+    return LocalStorageProvider(
+        base_dir=Path(settings.storage_local_dir), secret_key=settings.app_secret_key
+    )
 
 
 def get_extraction_provider() -> ExtractionProvider:

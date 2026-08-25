@@ -52,3 +52,45 @@ class ExtractionResultOut(BaseModel):
     fields: dict
     line_items: list[LineItemOut]
     created_at: datetime
+
+
+class ValidationResultOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    rule_name: str
+    passed: bool
+    reason: str | None
+
+
+class ReviewQueueItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    original_filename: str
+    created_at: datetime
+    updated_at: datetime
+    failed_rules: list[ValidationResultOut]
+
+
+class ReviewDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document: DocumentOut
+    extraction: ExtractionResultOut | None
+    failed_rules: list[ValidationResultOut]
+    file_url: str | None
+
+
+class FieldCorrectionIn(BaseModel):
+    field_name: str
+    corrected_value: str | None = None
+
+
+class ReviewCorrectionIn(BaseModel):
+    reviewer: str
+    corrections: list[FieldCorrectionIn]
+
+
+class ReviewRejectionIn(BaseModel):
+    reviewer: str
+    reason: str

@@ -75,7 +75,7 @@ class FakeExtractionProvider:
 def client(db_session, tmp_path):
     app.dependency_overrides[get_session] = lambda: db_session
     app.dependency_overrides[documents_router.get_storage_provider] = lambda: LocalStorageProvider(
-        base_dir=tmp_path
+        base_dir=tmp_path, secret_key="test-secret"
     )
     _override_extraction()
     # VALID_FIELDS' vendor ("Acme Corp") must be a known vendor for the

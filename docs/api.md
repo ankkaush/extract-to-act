@@ -38,11 +38,16 @@ No new endpoint — two independent checks, no worker or async step involved:
 
 `docs/state-machine.md` documents a `RECEIVED → DUPLICATE` transition added in this phase, alongside the originally-planned `VALIDATING → DUPLICATE`.
 
-### Phase 10 — Human review
-- `GET /review` — the review queue: documents in `NEEDS_REVIEW`, with reason codes.
-- `GET /review/{id}` — a single document's original file reference plus extracted fields, for the side-by-side review UI.
-- `POST /review/{id}/correct` — submit field corrections; writes a `review_events` audit entry and advances the state machine.
-- `POST /review/{id}/reject` — reject the document; moves it to `REJECTED`.
+### Phase 10 — Human review (implemented)
+- `GET /review` — the review queue: documents in `NEEDS_REVIEW`, oldest first, each with the specific `ValidationResult` rows that failed (not just a summary reason string — a reviewer needs to see exactly which rule(s) triggered the queue entry).
+- `GET /review/{id}` — a single document's fields, its failed rules, and a signed `file_url` for the original document. `404` if the document doesn't exist. Works for any document, not only ones currently `NEEDS_REVIEW`, since it's also useful for auditing a past decision.
+- `POST /review/{id}/correct` — body: `{"reviewer": "<free-text identity>", "corrections": [{"field_name": "...", "corrected_value": "..."}]}`. Only the promoted extraction header fields (`vendor_name`, `invoice_number`, `invoice_date`, `due_date`, `currency`, `subtotal`, `tax`, `total`) are correctable. Each correction writes one `review_events` row (original value captured before the overwrite) and the corrected value is applied directly to the `extraction_results` row. Requires `state == NEEDS_REVIEW` (`409` otherwise, e.g. already corrected or rejected). An unknown `field_name`, or a value that doesn't parse into that field's type, is `422` — a correction is exactly the kind of financially-consequential write that should fail loudly, never silently coerce. On success the document moves straight to `VALIDATED`, per `docs/state-machine.md` — a correction is a reviewer's assertion that the value is now right, so it is **not** re-run through Phase 7/8's deterministic rules.
+- `POST /review/{id}/reject` — body: `{"reviewer": "...", "reason": "..."}`. Requires `state == NEEDS_REVIEW` (`409` otherwise). Moves the document to `REJECTED`; the reviewer and reason are recorded in the `state_history` row's `reason` text (there is no separate `approvals`-style attribution table yet for review decisions — see `docs/adr/0008-api-authentication.md` on why `reviewer` is a free-text field, not an authenticated identity, at this stage).
+
+`ReviewCorrectionIn`/`ReviewRejectionIn`/`ReviewDetailOut`/`ReviewQueueItemOut` shapes: see `app/schemas.py`.
+
+### Phase 10 — Signed file access (implemented)
+- `GET /files/{storage_path}?expires=<unix_ts>&signature=<hmac>` — serves the original file bytes with the document's real `mime_type`. Deliberately **not** behind the `Authorization: Bearer` check every other route requires — the signature and its expiry are themselves the authorization, so the URL returned as `file_url` above can be dropped straight into a reviewer's browser or an `<img>`/`<iframe>` src. `403` if the signature doesn't match or has expired; `404` if no document has that storage path. See `docs/security.md`, "Unauthorized document access," and `app/storage.py`.
 
 ### Phase 11 — Approval
 - `GET /approvals` — documents awaiting approval.
