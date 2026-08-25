@@ -16,10 +16,41 @@ run against both synthetic fixtures and the real ground truth files and
 confirmed correct, including the critical-field-error reporting.
 
 **Not yet run against a real provider.** This environment has no
-Azure / Mistral / Anthropic credentials. The provider wrapper code is
-written against each SDK's documented shape but should be treated as
-*also under test* on the first real run — see the "not yet run" note in
-each `spike/providers/*.py` file.
+Azure / Mistral / Anthropic credentials. Everything that can be done
+without one has been: each provider module is split into a real-I/O
+`extract()` and a pure `parse_result()`/`parse_response()` that maps an
+SDK-response-shaped object to the normalized schema — and that mapping
+logic is unit-tested in `spike/test_providers.py` against hand-built fake
+response objects, with no SDK package installed and no network call.
+That doesn't eliminate the risk of a real API returning a subtly
+different shape than documented, but it does mean the first real run is
+testing *provider behavior*, not also debugging basic field-mapping bugs
+at the same time.
+
+## Tests
+
+```bash
+pip install -e ".[dev]"   # spike's own tests don't need the [spike] extra
+pytest spike/
+```
+
+- `test_formatting.py` — locale-aware amount/date rendering (this is
+  where a real rounding bug was caught — see git history).
+- `test_providers.py` — each provider's response-parsing logic against
+  fake SDK objects, as above.
+- `test_evaluate.py` — the scoring logic, including the critical-field
+  accuracy split and itemized error list.
+- `test_dataset_integrity.py` — guards the committed dataset against
+  drift: every spec has a matching committed ground-truth file, doc IDs
+  are unique, arithmetic is internally consistent, at least two documents
+  force real OCR, currencies stay varied.
+- `test_run_spike.py` — the orchestrator's dispatch, skip-when-no-
+  credentials behavior, per-call error handling, and budget-cap
+  enforcement, with every provider's `extract()` faked out.
+
+These run as part of the same `pytest` CI already runs for the
+application — no separate job, no spike-only CI step, since none of them
+need the `[spike]` extra.
 
 ## The dataset
 

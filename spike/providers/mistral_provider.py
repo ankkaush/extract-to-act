@@ -12,10 +12,12 @@ run (see spike/providers/__init__.py).
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from pathlib import Path
 
+from spike.pricing import MISTRAL_OCR_USD_PER_PAGE
 from spike.schema import EVALUATED_FIELDS, FieldResult, LineItemResult, NormalizedExtraction
 
 _ANNOTATION_SCHEMA = {
@@ -37,6 +39,48 @@ _ANNOTATION_SCHEMA = {
     },
     "required": EVALUATED_FIELDS,
 }
+
+
+def parse_response(response, doc_id: str, latency: float) -> NormalizedExtraction:  # noqa: ANN001
+    """Pure mapping from a Mistral OCR response-shaped object to our
+    normalized schema — no network I/O, no SDK import required. See
+    spike/providers/azure_provider.py's parse_result for the same split,
+    and spike/test_providers.py for the tests this enables.
+    """
+    annotation = getattr(response, "document_annotation", None) or {}
+    if isinstance(annotation, str):
+        annotation = json.loads(annotation)
+
+    fields: dict[str, FieldResult] = {}
+    for name in EVALUATED_FIELDS:
+        # Mistral OCR returns document-level confidence/bbox for text
+        # blocks, not natively per structured-field — this spike is
+        # partly what determines whether that's a real gap in practice.
+        # See docs/extraction-strategy.md, "on confidence scores".
+        fields[name] = FieldResult(value=annotation.get(name))
+
+    line_items = [
+        LineItemResult(
+            description=item.get("description"),
+            quantity=item.get("quantity"),
+            unit_price=item.get("unit_price"),
+            line_total=item.get("line_total"),
+        )
+        for item in annotation.get("line_items", [])
+    ]
+
+    page_count = len(getattr(response, "pages", []) or [1])
+
+    return NormalizedExtraction(
+        provider_name="mistral_ocr",
+        model_version="mistral-ocr-latest",
+        doc_id=doc_id,
+        fields=fields,
+        line_items=line_items,
+        latency_seconds=latency,
+        estimated_cost_usd=page_count * MISTRAL_OCR_USD_PER_PAGE,  # 0 in practice on the free tier
+        raw_response=response.model_dump() if hasattr(response, "model_dump") else None,
+    )
 
 
 def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
@@ -62,40 +106,4 @@ def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
     )
     latency = time.monotonic() - start
 
-    annotation = getattr(response, "document_annotation", None) or {}
-    if isinstance(annotation, str):
-        import json
-
-        annotation = json.loads(annotation)
-
-    fields: dict[str, FieldResult] = {}
-    for name in EVALUATED_FIELDS:
-        # Mistral OCR returns document-level confidence/bbox for text
-        # blocks, not natively per structured-field — this spike is
-        # partly what determines whether that's a real gap in practice.
-        # See docs/extraction-strategy.md, "on confidence scores".
-        fields[name] = FieldResult(value=annotation.get(name))
-
-    line_items = [
-        LineItemResult(
-            description=item.get("description"),
-            quantity=item.get("quantity"),
-            unit_price=item.get("unit_price"),
-            line_total=item.get("line_total"),
-        )
-        for item in annotation.get("line_items", [])
-    ]
-
-    page_count = len(getattr(response, "pages", []) or [1])
-    from spike.pricing import MISTRAL_OCR_USD_PER_PAGE
-
-    return NormalizedExtraction(
-        provider_name="mistral_ocr",
-        model_version="mistral-ocr-latest",
-        doc_id=doc_id,
-        fields=fields,
-        line_items=line_items,
-        latency_seconds=latency,
-        estimated_cost_usd=page_count * MISTRAL_OCR_USD_PER_PAGE,  # 0 in practice on the free tier
-        raw_response=response.model_dump() if hasattr(response, "model_dump") else None,
-    )
+    return parse_response(response, doc_id, latency)

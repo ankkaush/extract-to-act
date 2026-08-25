@@ -53,22 +53,14 @@ def _field_result(field) -> FieldResult:  # noqa: ANN001 — azure SDK type, avo
     )
 
 
-def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
-    from azure.ai.documentintelligence import DocumentIntelligenceClient
-    from azure.core.credentials import AzureKeyCredential
-
-    endpoint = os.environ["AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"]
-    key = os.environ["AZURE_DOCUMENT_INTELLIGENCE_KEY"]
-    client = DocumentIntelligenceClient(endpoint=endpoint, credential=AzureKeyCredential(key))
-
-    start = time.monotonic()
-    with open(doc_path, "rb") as f:
-        poller = client.begin_analyze_document(
-            "prebuilt-invoice", body=f, content_type="application/octet-stream"
-        )
-        result = poller.result()
-    latency = time.monotonic() - start
-
+def parse_result(result, doc_id: str, latency: float) -> NormalizedExtraction:  # noqa: ANN001
+    """Pure mapping from an Azure `AnalyzeResult`-shaped object to our
+    normalized schema — no network I/O, no SDK import required to call
+    this. Deliberately separated from `extract()` below so it can be
+    unit-tested against a fake result object without an Azure account or
+    the azure-ai-documentintelligence package installed. See
+    spike/test_providers.py.
+    """
     if not result.documents:
         return NormalizedExtraction(
             provider_name="azure_document_intelligence",
@@ -131,3 +123,22 @@ def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
         estimated_cost_usd=0.0,  # within the free 500-pages/month tier for a spike this size
         raw_response=result.as_dict() if hasattr(result, "as_dict") else None,
     )
+
+
+def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
+    from azure.ai.documentintelligence import DocumentIntelligenceClient
+    from azure.core.credentials import AzureKeyCredential
+
+    endpoint = os.environ["AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT"]
+    key = os.environ["AZURE_DOCUMENT_INTELLIGENCE_KEY"]
+    client = DocumentIntelligenceClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+
+    start = time.monotonic()
+    with open(doc_path, "rb") as f:
+        poller = client.begin_analyze_document(
+            "prebuilt-invoice", body=f, content_type="application/octet-stream"
+        )
+        result = poller.result()
+    latency = time.monotonic() - start
+
+    return parse_result(result, doc_id, latency)

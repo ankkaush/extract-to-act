@@ -63,43 +63,12 @@ _EXTRACTION_TOOL = {
 }
 
 
-def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    pdf_b64 = base64.b64encode(doc_path.read_bytes()).decode("ascii")
-
-    start = time.monotonic()
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=2048,
-        tools=[_EXTRACTION_TOOL],
-        tool_choice={"type": "tool", "name": "record_invoice_extraction"},
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": pdf_b64,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": (
-                            "Extract the invoice fields via the record_invoice_extraction tool. "
-                            "Use null for anything genuinely not present rather than guessing."
-                        ),
-                    },
-                ],
-            }
-        ],
-    )
-    latency = time.monotonic() - start
-
+def parse_response(response, doc_id: str, latency: float) -> NormalizedExtraction:  # noqa: ANN001
+    """Pure mapping from an Anthropic Messages API response-shaped object
+    to our normalized schema — no network I/O, no SDK import required.
+    See spike/providers/azure_provider.py's parse_result for the same
+    split, and spike/test_providers.py for the tests this enables.
+    """
     tool_use = next((block for block in response.content if block.type == "tool_use"), None)
     if tool_use is None:
         return NormalizedExtraction(
@@ -152,3 +121,43 @@ def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
             }
         },
     )
+
+
+def extract(doc_path: Path, doc_id: str) -> NormalizedExtraction:
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    pdf_b64 = base64.b64encode(doc_path.read_bytes()).decode("ascii")
+
+    start = time.monotonic()
+    response = client.messages.create(
+        model=MODEL,
+        max_tokens=2048,
+        tools=[_EXTRACTION_TOOL],
+        tool_choice={"type": "tool", "name": "record_invoice_extraction"},
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": pdf_b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": (
+                            "Extract the invoice fields via the record_invoice_extraction tool. "
+                            "Use null for anything genuinely not present rather than guessing."
+                        ),
+                    },
+                ],
+            }
+        ],
+    )
+    latency = time.monotonic() - start
+
+    return parse_response(response, doc_id, latency)
