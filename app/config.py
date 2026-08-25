@@ -9,7 +9,7 @@ wires them up — see PLAN.md.
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,6 +39,21 @@ class Settings(BaseSettings):
     # constructed in contexts that never call the provider (tests override
     # get_extraction_provider() directly — see app/routers/documents.py).
     mistral_api_key: str = Field(default="", alias="MISTRAL_API_KEY")
+
+    # Phase 11 — see .env.example: "dollar figure is a product decision,
+    # not yet set." 1000.00 is a placeholder default reasonable for a
+    # portfolio demo, adjustable via env without a code change — same
+    # spirit as docs/workflow.md leaving confidence thresholds unfixed.
+    approval_threshold_amount: float = Field(default=1000.0, alias="APPROVAL_THRESHOLD_AMOUNT")
+
+    # .env.example ships APPROVAL_THRESHOLD_AMOUNT= blank (an unset
+    # product decision, not a real default) — unlike the string fields
+    # above, an empty string isn't a valid float, so it needs an explicit
+    # fallback rather than pydantic's normal blank-string handling.
+    @field_validator("approval_threshold_amount", mode="before")
+    @classmethod
+    def _blank_means_use_default(cls, value):
+        return 1000.0 if value in (None, "") else value
 
 
 @lru_cache

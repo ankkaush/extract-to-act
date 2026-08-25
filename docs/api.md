@@ -49,10 +49,14 @@ No new endpoint — two independent checks, no worker or async step involved:
 ### Phase 10 — Signed file access (implemented)
 - `GET /files/{storage_path}?expires=<unix_ts>&signature=<hmac>` — serves the original file bytes with the document's real `mime_type`. Deliberately **not** behind the `Authorization: Bearer` check every other route requires — the signature and its expiry are themselves the authorization, so the URL returned as `file_url` above can be dropped straight into a reviewer's browser or an `<img>`/`<iframe>` src. `403` if the signature doesn't match or has expired; `404` if no document has that storage path. See `docs/security.md`, "Unauthorized document access," and `app/storage.py`.
 
-### Phase 11 — Approval
-- `GET /approvals` — documents awaiting approval.
-- `POST /approvals/{id}/approve` — approve; requires an authenticated, authorized actor; writes an `approvals` row.
-- `POST /approvals/{id}/reject` — reject.
+### Phase 11 — Approval Workflow (implemented)
+- `GET /approvals` — `VALIDATED` documents whose total is at or above `APPROVAL_THRESHOLD_AMOUNT` and that don't yet have an `approvals` row, oldest first, each with the reason approval is required. A document under the threshold never appears here — it needs no sign-off.
+- `POST /approvals/{id}/approve` — body: `{"approver": "<free-text identity>"}`. Requires `state == VALIDATED`, the document to actually meet the threshold, and no existing `approvals` row (`409` otherwise on any of the three). Writes an `approvals` row (`amount`, `threshold_applied`, `approver`, `decision: APPROVED`). **Does not change `document.state`** — the document stays `VALIDATED`; the `approvals` row itself is the signal a later worker (Phase 12/13) checks before writing to accounting. See `docs/state-machine.md`.
+- `POST /approvals/{id}/reject` — body: `{"approver": "...", "reason": "..."}`. Same preconditions as approve. Writes an `approvals` row (`decision: REJECTED`) and moves the document `VALIDATED → REJECTED` — a new transition documented in `docs/state-machine.md` alongside Phase 10's `NEEDS_REVIEW → REJECTED`. The approver and reason are recorded in the `state_history` row's `reason` text, same pattern as Phase 10's review rejection (see `docs/adr/0008-api-authentication.md` on why `approver` is a free-text field, not an authenticated identity, at this stage).
+
+Not implemented: the smaller "missing a PO" approval floor `docs/workflow.md` mentions — no purchase-order field exists anywhere in the extraction schema, so there's nothing to check it against (see `app/approval.py`).
+
+`ApprovalQueueItemOut`/`ApprovalDecisionIn`/`ApprovalRejectionIn`/`ApprovalActionOut` shapes: see `app/schemas.py`.
 
 ### Phase 16 — Observability
 - `GET /dashboard` — the metrics summary (straight-through rate, review rate, average processing time, etc. — see `docs/cost-strategy.md` for which are measured vs. estimated).

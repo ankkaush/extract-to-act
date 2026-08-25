@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models import DocumentState
+from app.models import ApprovalDecision, DocumentState
 
 
 class DocumentOut(BaseModel):
@@ -94,3 +94,39 @@ class ReviewCorrectionIn(BaseModel):
 class ReviewRejectionIn(BaseModel):
     reviewer: str
     reason: str
+
+
+class ApprovalOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    document_id: uuid.UUID
+    amount: float
+    threshold_applied: float | None
+    approver: str | None
+    decision: ApprovalDecision
+    created_at: datetime
+
+
+class ApprovalQueueItemOut(BaseModel):
+    id: uuid.UUID
+    original_filename: str
+    total: float
+    created_at: datetime
+    reason: str
+
+
+class ApprovalDecisionIn(BaseModel):
+    approver: str
+
+
+class ApprovalRejectionIn(BaseModel):
+    approver: str
+    reason: str
+
+
+class ApprovalActionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document: DocumentOut
+    approval: ApprovalOut
